@@ -88,7 +88,7 @@ class DiscreteLp(Discretization):
 
         self._interp = str(interp).lower()
         if self.interp not in _SUPPORTED_INTERP:
-            raise TypeError('{!r} is not among the supported interpolation'
+            raise TypeError('{!r} is not among the supported interpolation '
                             'types {}.'.format(interp, _SUPPORTED_INTERP))
 
         self._order = str(kwargs.pop('order', 'C')).upper()
@@ -362,8 +362,8 @@ class DiscreteLpVector(DiscretizationVector):
                 values = np.atleast_1d(values)
                 if (values.ndim > 1 and
                         values.shape != self.space.grid.shape):
-                    raise ValueError('shape {} of value array {} not equal'
-                                     ' to sampling grid shape {}.'
+                    raise ValueError('shape {} of value array {} not equal '
+                                     'to sampling grid shape {}.'
                                      ''.format(values.shape, values,
                                                self.space.grid.shape))
                 values = values.ravel(order=self.space.order)

@@ -284,7 +284,7 @@ class SpaceTest(object):
                 x.lincomb(1, x, 1, y)
                 correct = _approx_equal(x, x_in + y, self.eps)
                 if not correct:
-                    counter.fail('failed with x.lincomb(1, x, 1, y),'
+                    counter.fail('failed with x.lincomb(1, x, 1, y), '
                                  'x={:25s} y={:25s} '
                                  ''.format(n_x, n_y))
 
@@ -292,7 +292,7 @@ class SpaceTest(object):
                 x.lincomb(1, x, 1, x)
                 correct = _approx_equal(x, x_in + x_in, self.eps)
                 if not correct:
-                    counter.fail('failed with x.lincomb(1, x, 1, x),'
+                    counter.fail('failed with x.lincomb(1, x, 1, x), '
                                  'x={:25s} '
                                  ''.format(n_x))
 

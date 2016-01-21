@@ -107,7 +107,7 @@ class RawDiscretization(NtuplesBase):
                                  ''.format(restr.domain, dspace))
 
             if restr.range != dspace:
-                raise ValueError('restriction operator range {} not equal to'
+                raise ValueError('restriction operator range {} not equal to '
                                  'the data space {}.'
                                  ''.format(restr.range, dspace))
 
@@ -117,12 +117,12 @@ class RawDiscretization(NtuplesBase):
                                 'instance.'.format(ext))
 
             if ext.domain != dspace:
-                raise ValueError('extension operator domain {} not equal to'
+                raise ValueError('extension operator domain {} not equal to '
                                  'the data space {}.'
                                  ''.format(ext.domain, dspace))
 
             if ext.range != uspace:
-                raise ValueError('extension operator range {} not equal to'
+                raise ValueError('extension operator range {} not equal to '
                                  'the undiscretized space {}.'
                                  ''.format(ext.range, uspace))
 

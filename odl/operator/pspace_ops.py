@@ -169,14 +169,14 @@ class ProductSpaceOperator(Operator):
             if domains[col] is None:
                 domains[col] = op.domain
             elif domains[col] != op.domain:
-                raise ValueError('Column {}, has inconsistent domains,'
+                raise ValueError('Column {}, has inconsistent domains, '
                                  'got {} and {}'
                                  ''.format(col, domains[col], op.domain))
 
             if ranges[row] is None:
                 ranges[row] = op.range
             elif ranges[row] != op.range:
-                raise ValueError('Row {}, has inconsistent ranges,'
+                raise ValueError('Row {}, has inconsistent ranges, '
                                  'got {} and {}'
                                  ''.format(row, ranges[row], op.range))
 

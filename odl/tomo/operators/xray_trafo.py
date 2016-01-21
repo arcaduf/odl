@@ -71,8 +71,8 @@ class DiscreteXrayTransform(Operator):
                 operator range. Default: 'nearest'
         """
         if not isinstance(discr_dom, DiscreteLp):
-            raise TypeError('discretized domain {!r} is not a `DiscreteLp`'
-                            ' instance.'.format(discr_dom))
+            raise TypeError('discretized domain {!r} is not a `DiscreteLp` '
+                            'instance.'.format(discr_dom))
 
         if not isinstance(geometry, Geometry):
             raise TypeError('geometry {!r} is not a `Geometry` instance.'

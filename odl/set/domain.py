@@ -262,7 +262,7 @@ class IntervalProd(Set):
                     self.approx_contains(other.max(), tol))
         except AttributeError as err:
             raise_from(
-                AttributeError('cannot test {!r} without `min()` and `max()`'
+                AttributeError('cannot test {!r} without `min()` and `max()` '
                                'methods.'.format(other)), err)
 
     def contains_all(self, other):
@@ -637,7 +637,7 @@ class IntervalProd(Set):
         """Return ``self * other``."""
         if isinstance(other, IntervalProd):
             if self.ndim != other.ndim:
-                raise ValueError('Multiplication not possible for {!r} and'
+                raise ValueError('Multiplication not possible for {!r} and '
                                  '{!r}: dimension mismatch ({} != {}).'
                                  ''.format(self, other, self.ndim, other.ndim))
 
@@ -668,7 +668,7 @@ class IntervalProd(Set):
             contains_zero = np.any(np.logical_and(self.begin <= 0,
                                                   self.end >= 0))
             if contains_zero:
-                raise ValueError('Division by other {!r} not possible:'
+                raise ValueError('Division by other {!r} not possible: '
                                  'Interval contains 0.'
                                  ''.format(other))
 

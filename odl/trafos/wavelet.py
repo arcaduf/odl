@@ -112,8 +112,8 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
 
     max_level = pywt.dwt_max_level(shape[0], filter_len=wbasis.dec_len)
     if nscales > max_level:
-        raise ValueError('Too many scaling levels, got {}, maximum useful'
-                         ' level is {}'
+        raise ValueError('Too many scaling levels, got {}, maximum useful '
+                         'level is {}'
                          ''.format(nscales, max_level))
 
     # dwt_coeff_len calculates the number of coefficients at the next
