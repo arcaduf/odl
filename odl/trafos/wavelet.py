@@ -25,17 +25,25 @@ from builtins import range, str, super
 
 # External
 import numpy as np
+#import jos_wavelets as bwt
 try:
     import pywt
     PYWAVELETS_AVAILABLE = True
+    import jos_wavelets as bwt
+#    JOSWAVELETS_AVAILABLE = True
 except ImportError:
     PYWAVELETS_AVAILABLE = False
+#    JOSWAVELETS_AVAILABLE = False
 
 # Internal
 from odl.discr.lp_discr import DiscreteLp
 from odl.operator.operator import Operator
 
-__all__ = ('WaveletTransform', 'WaveletTransformInverse',
+__all__ = ('WaveletTransform', 'InverseWaveletTransform',
+           'BiorthWaveletTransform',
+           'AdjBiorthWaveletTransform',
+           'InverseBiorthWaveletTransform',
+           'InverseAdjBiorthWaveletTransform',
            'PYWAVELETS_AVAILABLE')
 
 
@@ -263,7 +271,8 @@ def array_to_pywt_coeff(coeff, size_list):
        ``size_list[0]`` = size of approximation coefficients at the coarsest
                           level,
 
-       ``size_list[1]`` = size of the detailedetails at the coarsest level,
+       ``size_list[1]`` = size of the detailed coefficients at the coarsest
+                          level,
 
        ``size_list[N]`` = size of the detailed coefficients at the finest
                           level,
@@ -532,26 +541,37 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
 -dwt-max-level>`_ .
 
         wbasis :  {`str`, ``pywt.Wavelet``}
-            If a string is given, converts to a ``pywt.Wavelet``.
+            If a string is given, converts to a ``pywt.Wavelet``
+            Except when string starts with `JOS`, in that case
+            calles J.-O. Stromberg's wavelet library.
+
             Describes properties of a selected wavelet basis.
             See PyWavelet `documentation
             <http://www.pybytes.com/pywavelets/ref/wavelets.html>`_
 
             Possible wavelet families are:
 
-            Haar (``haar``)
+            Haar (``'haar'``)
 
-            Daubechies (``db``)
+            Daubechies (``'db'``)
 
-            Symlets (``sym``)
+            Symlets (``'sym'``)
 
-            Coiflets (``coif``)
+            Coiflets (``'coif'``)
 
-            Biorthogonal (``bior``)
+            Biorthogonal (``'bior'``)
 
-            Reverse biorthogonal (``rbio``)
+            Reverse biorthogonal (``'rbio'``)
 
-            Discrete FIR approximation of Meyer wavelet (``dmey``)
+            Discrete FIR approximation of Meyer wavelet (``'dmey'``)
+
+            J.-O. Stromberg's biorthogonal wavelets (``'JOSbiorthN'``)
+            ``N`` defines the filter length.
+            Possible values for the filter length are :
+
+            1, 3, 5, 7, 9
+
+            This requires the extension/external BIWAVELETS/libwavelets
 
         mode : `str`
              Signal extention modes as defined by ``pywt.MODES.modes``
@@ -572,6 +592,9 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
 
             'per': periodization -- like periodic-padding but gives the
             smallest possible number of decomposition coefficients.
+
+            With J.-O. Stromberg's biorthogonal wavelets only signal
+            extension mode 'sym' is implemented.
 
         Examples
         --------
@@ -589,7 +612,15 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
         if isinstance(wbasis, pywt.Wavelet):
             self.wbasis = wbasis
         else:
-            self.wbasis = pywt.Wavelet(wbasis)
+            try:
+                wbasis = wbasis + ''
+                if wbasis.startswith('JOS'):
+                    self.wbasis = wbasis
+                else:
+                    self.wbasis = pywt.Wavelet(wbasis)
+            except TypeError:
+                raise ValueError('wavelet {} not understood.'
+                                 ''.format(wbasis))
 
         if not isinstance(dom, DiscreteLp):
             raise TypeError('domain {!r} is not a `DiscreteLp` instance.'
@@ -599,45 +630,65 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
             raise ValueError('domain Lp exponent is {} instead of 2.0.'
                              ''.format(dom.exponent))
 
-        max_level = pywt.dwt_max_level(dom.shape[0],
-                                       filter_len=self.wbasis.dec_len)
-        # TODO: maybe the error message could tell how to calculate the
-        # max number of levels
+        if isinstance(self.wbasis, pywt.Wavelet):
+            max_level = pywt.dwt_max_level(dom.grid.shape[0],
+                                           filter_len=self.wbasis.dec_len)
+            self.size_list = coeff_size_list(dom.grid.shape, self.nscales,
+                                             self.wbasis, self.mode)
+            ran_size = np.prod(self.size_list[0])
+
+            if dom.ndim == 1:
+                ran_size += sum(np.prod(shape) for shape in
+                                self.size_list[1:-1])
+            elif dom.ndim == 2:
+                ran_size += sum(3 * np.prod(shape) for shape in
+                                self.size_list[1:-1])
+            elif dom.ndim == 3:
+                ran_size += sum(7 * np.prod(shape) for shape in
+                                self.size_list[1:-1])
+            else:
+                raise NotImplementedError('ndim {} not 1, 2 or 3'
+                                          ''.format(len(dom.ndim)))
+
+        else:
+            ndim = dom.ndim
+            if ndim == 1:
+                max_level = np.log2(dom.grid.shape[0])
+            elif ndim == 2:
+                max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1]))
+            elif ndim == 3:
+                max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
+                                        dom.grid.shape[2]))
+            max_level = np.ceil(max_level)
+
+            ran_size = dom.size
+            filterlength = int(self.wbasis[-1])
+            if filterlength not in (1, 3, 5, 7, 9):
+                raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
+                                          ''.format(filterlength))
+
         if self.nscales > max_level:
             raise ValueError('Cannot use more than {} scaling levels, '
-                             'got {}.'.format(max_level, self.nscales))
+                             'got {}. Use pywt.dwt_max_level to determine '
+                             'maximum useful level' .format(max_level,
+                                                            self.nscales))
 
-        self.size_list = coeff_size_list(dom.shape, self.nscales,
-                                         self.wbasis, self.mode)
-
-        ran_size = np.prod(self.size_list[0])
-
-        if dom.ndim == 1:
-            ran_size += sum(np.prod(shape) for shape in
-                            self.size_list[1:-1])
-        elif dom.ndim == 2:
-            ran_size += sum(3 * np.prod(shape) for shape in
-                            self.size_list[1:-1])
-        elif dom.ndim == 3:
-            ran_size += sum(7 * np.prod(shape) for shape in
-                            self.size_list[1:-1])
-        else:
-            raise NotImplementedError('ndim {} not 1, 2 or 3'
-                                      ''.format(len(dom.ndim)))
-
-        # TODO: Maybe allow other ranges like Besov spaces (yet to be created)
         ran = dom.dspace_type(ran_size, dtype=dom.dtype)
         super().__init__(dom, ran, linear=True)
 
     @property
     def is_orthogonal(self):
         """Whether or not the wavelet basis is orthogonal."""
-        return self.wbasis.orthogonal
+        if isinstance(self.wbasis, pywt.Wavelet):
+            return self.wbasis.orthogonal
+        else:
+            return False
 
     @property
     def is_biorthogonal(self):
         """Whether or not the wavelet basis is bi-orthogonal."""
-        return self.wbasis.biorthogonal
+        if isinstance(self.wbasis, pywt.Wavelet):
+            return self.wbasis.biorthogonal
 
     def _call(self, x):
         """Compute the discrete wavelet transform.
@@ -653,22 +704,29 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
             The length of the array depends on the size of input image to
             be transformed and on the chosen wavelet basis.
         """
-        if x.space.ndim == 1:
-            coeff_list = pywt.wavedec(x, self.wbasis, self.mode, self.nscales)
-            coeff_arr = pywt_coeff_to_array(coeff_list, self.size_list)
-            return self.range.element(coeff_arr)
+        if not isinstance(self.wbasis, pywt.Wavelet):
+            Op = BiorthWaveletTransform(dom=self.domain, nscales=self.nscales,
+                                        wbasis=self.wbasis)
+            coeff = Op(x)
+            return self.range.element(coeff)
+        elif isinstance(self.wbasis, pywt.Wavelet):
+            if x.space.ndim == 1:
+                coeff_list = pywt.wavedec(x, self.wbasis, self.mode,
+                                          self.nscales)
+                coeff_arr = pywt_coeff_to_array(coeff_list, self.size_list)
+                return self.range.element(coeff_arr)
 
-        if x.space.ndim == 2:
-            coeff_list = pywt.wavedec2(x, self.wbasis, self.mode, self.nscales)
-            coeff_arr = pywt_coeff_to_array(coeff_list, self.size_list)
-            return self.range.element(coeff_arr)
+            if x.space.ndim == 2:
+                coeff_list = pywt.wavedec2(x, self.wbasis, self.mode,
+                                           self.nscales)
+                coeff_arr = pywt_coeff_to_array(coeff_list, self.size_list)
+                return self.range.element(coeff_arr)
 
-        if x.space.ndim == 3:
-            coeff_dict = wavelet_decomposition3d(x, self.wbasis, self.mode,
-                                                 self.nscales)
-            coeff_arr = pywt_coeff_to_array(coeff_dict, self.size_list)
-
-            return self.range.element(coeff_arr)
+            if x.space.ndim == 3:
+                coeff_dict = wavelet_decomposition3d(x, self.wbasis, self.mode,
+                                                     self.nscales)
+                coeff_arr = pywt_coeff_to_array(coeff_dict, self.size_list)
+                return self.range.element(coeff_arr)
 
     @property
     def adjoint(self):
@@ -676,18 +734,28 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
         if self.is_orthogonal:
             return self.inverse
         else:
-            # TODO: put adjoint here
-            return super().adjoint
+            if not isinstance(self.wbasis, pywt.Wavelet):
+                return AdjBiorthWaveletTransform(
+                    dom=self.range, ran=self.domain, nscales=self.nscales,
+                    wbasis=self.wbasis)
+            else:
+                return super().adjoint
 
     @property
     def inverse(self):
         """The inverse wavelet transform."""
-        return WaveletTransformInverse(
-            ran=self.domain, nscales=self.nscales, wbasis=self.wbasis,
-            mode=self.mode)
+        if not isinstance(self.wbasis, pywt.Wavelet):
+            return InverseBiorthWaveletTransform(ran=self.domain,
+                                                 nscales=self.nscales,
+                                                 wbasis=self.wbasis)
+        elif isinstance(self.wbasis, pywt.Wavelet):
+            return InverseWaveletTransform(ran=self.domain,
+                                           nscales=self.nscales,
+                                           wbasis=self.wbasis,
+                                           mode=self.mode)
 
 
-class WaveletTransformInverse(Operator):
+class InverseWaveletTransform(Operator):
 
     """Discrete inverse wavelet trafo between discrete L2 spaces."""
 
@@ -696,8 +764,8 @@ class WaveletTransformInverse(Operator):
 
          Parameters
         ----------
-        dom : `DiscreteLp`
-            Domain of the wavelet transform (the "image domain").
+        ran : `DiscreteLp`
+            Range of the inverse wavelet transform (the "image domain").
             The exponent :math:`p` of the discrete :math:`L^p`
             space must be equal to 2.0.
 
@@ -710,7 +778,9 @@ class WaveletTransformInverse(Operator):
 dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
 -dwt-max-level>`_ .
 
-        wbasis :  ``pywt.Wavelet``
+        wbasis :  {`str`, ``pywt.Wavelet``}
+            If a string is given, converts to a ``pywt.Wavelet``.
+
             Describes properties of a selected wavelet basis.
             See PyWavelet `documentation
             <http://www.pybytes.com/pywavelets/ref/wavelets.html>`_
@@ -731,6 +801,14 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
 
             Discrete FIR approximation of Meyer wavelet (``dmey``)
 
+            Biorthogonal wavelets of J.-O. Stomberg (``'JOSbiorthN'``)
+            ``N`` refers to the filter length.
+            Possible values for filter lengths are:
+
+            1, 3, 5, 7, 9
+
+            This requires the extension/external BIWAVELETS/libwavelets
+
         mode : `str`
              Signal extention modes as defined by ``pywt.MODES.modes``
              http://www.pybytes.com/pywavelets/ref/signal-extension-modes.html
@@ -750,10 +828,25 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
 
             'per': periodization -- like periodic-padding but gives the
             smallest possible number of decomposition coefficients.
+
+            With J.-O. Stomberg's biorthogonal wavelets only signal
+            extension mode 'sym' is available.
         """
         self.nscales = int(nscales)
-        self.wbasis = wbasis
         self.mode = str(mode).lower()
+
+        if isinstance(wbasis, pywt.Wavelet):
+            self.wbasis = wbasis
+        else:
+            try:
+                wbasis = wbasis + ''
+                if wbasis.startswith('JOS'):
+                    self.wbasis = wbasis
+                else:
+                    self.wbasis = pywt.Wavelet(wbasis)
+            except TypeError:
+                raise ValueError('wavelet {} not understood.'
+                                 ''.format(wbasis))
 
         if not isinstance(ran, DiscreteLp):
             raise TypeError('range {!r} is not a `DiscreteLp` instance.'
@@ -763,44 +856,66 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
             raise ValueError('range Lp exponent is {} instead of 2.0.'
                              ''.format(ran.exponent))
 
-        max_level = pywt.dwt_max_level(ran.shape[0],
-                                       filter_len=self.wbasis.dec_len)
-        # TODO: maybe the error message could tell how to calculate the
-        # max number of levels
+        if isinstance(self.wbasis, pywt.Wavelet):
+            max_level = pywt.dwt_max_level(ran.grid.shape[0],
+                                           filter_len=self.wbasis.dec_len)
+            self.size_list = coeff_size_list(ran.grid.shape, self.nscales,
+                                             self.wbasis, self.mode)
+
+            dom_size = np.prod(self.size_list[0])
+
+            if ran.ndim == 1:
+                dom_size += sum(np.prod(shape) for shape in
+                                self.size_list[1:-1])
+            elif ran.ndim == 2:
+                dom_size += sum(3 * np.prod(shape) for shape in
+                                self.size_list[1:-1])
+            elif ran.ndim == 3:
+                dom_size += sum(7 * np.prod(shape) for shape in
+                                self.size_list[1:-1])
+            else:
+                raise NotImplementedError('ndim {} not 1, 2 or 3'
+                                          ''.format(ran.ndim))
+
+        else:
+            ndim = ran.ndim
+            if ndim == 1:
+                max_level = np.log2(ran.grid.shape[0])
+            elif ndim == 2:
+                max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1]))
+            elif ndim == 3:
+                max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
+                                        ran.grid.shape[2]))
+            max_level = np.ceil(max_level)
+            #Do we need this as a helper function?
+            dom_size = ran.size
+            filterlength = int(wbasis[9])
+            if filterlength not in (1, 3, 5, 7, 9):
+                raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
+                                          ''.format(filterlength))
+
         if self.nscales > max_level:
             raise ValueError('Cannot use more than {} scaling levels, '
-                             'got {}.'.format(max_level, self.nscales))
+                             'got {}. Use pywt.dwt_max_level to determine '
+                             'maximum useful level' .format(max_level,
+                                                            self.nscales))
 
-        self.size_list = coeff_size_list(ran.shape, self.nscales,
-                                         self.wbasis, self.mode)
-
-        dom_size = np.prod(self.size_list[0])
-        if ran.ndim == 1:
-            dom_size += sum(np.prod(shape) for shape in
-                            self.size_list[1:-1])
-        elif ran.ndim == 2:
-            dom_size += sum(3 * np.prod(shape) for shape in
-                            self.size_list[1:-1])
-        elif ran.ndim == 3:
-            dom_size += sum(7 * np.prod(shape) for shape in
-                            self.size_list[1:-1])
-        else:
-            raise NotImplementedError('ndim {} not 1, 2 or 3'
-                                      ''.format(ran.ndim))
-
-        # TODO: Maybe allow other ranges like Besov spaces (yet to be created)
         dom = ran.dspace_type(dom_size, dtype=ran.dtype)
         super().__init__(dom, ran, linear=True)
 
     @property
     def is_orthogonal(self):
         """Whether or not the wavelet basis is orthogonal."""
-        return self.wbasis.orthogonal
+        if isinstance(self.wbasis, pywt.Wavelet):
+            return self.wbasis.orthogonal
+        else:
+            return False
 
     @property
     def is_biorthogonal(self):
         """Whether or not the wavelet basis is bi-orthogonal."""
-        return self.wbasis.biorthogonal
+        if isinstance(self.wbasis, pywt.Wavelet):
+            return self.wbasis.biorthogonal
 
     def _call(self, coeff):
         """Compute the discrete 1D, 2D or 3D inverse wavelet transform.
@@ -814,19 +929,27 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
         arr : `DiscreteLpVector`
 
         """
-        if len(self.range.shape) == 1:
-            coeff_list = array_to_pywt_coeff(coeff, self.size_list)
-            x = pywt.waverec(coeff_list, self.wbasis, self.mode)
+        if not isinstance(self.wbasis, pywt.Wavelet):
+            Op = InverseBiorthWaveletTransform(ran=self.range,
+                                               nscales=self.nscales,
+                                               wbasis=self.wbasis)
+            x = Op(coeff)
             return self.range.element(x)
-        elif len(self.range.shape) == 2:
-            coeff_list = array_to_pywt_coeff(coeff, self.size_list)
-            x = pywt.waverec2(coeff_list, self.wbasis, self.mode)
-            return self.range.element(x)
-        elif len(self.range.shape) == 3:
-            coeff_dict = array_to_pywt_coeff(coeff, self.size_list)
-            x = wavelet_reconstruction3d(coeff_dict, self.wbasis, self.mode,
-                                         self.nscales)
-            return self.range.element(x)
+        elif isinstance(self.wbasis, pywt.Wavelet):
+            if len(self.range.grid.shape) == 1:
+                coeff_list = array_to_pywt_coeff(coeff, self.size_list)
+                x = pywt.waverec(coeff_list, self.wbasis, self.mode)
+                return self.range.element(x)
+            elif len(self.range.grid.shape) == 2:
+                coeff_list = array_to_pywt_coeff(coeff, self.size_list)
+                x = pywt.waverec2(coeff_list, self.wbasis, self.mode)
+                return self.range.element(x)
+            elif len(self.range.grid.shape) == 3:
+                coeff_dict = array_to_pywt_coeff(coeff, self.size_list)
+                x = wavelet_reconstruction3d(coeff_dict, self.wbasis,
+                                             self.mode,
+                                             self.nscales)
+                return self.range.element(x)
 
     @property
     def adjoint(self):
@@ -834,14 +957,511 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
         if self.is_orthogonal:
             return self.inverse
         else:
-            # TODO: put adjoint here
-            return super().adjoint
+            if not isinstance(self.wbasis, pywt.Wavelet):
+                return InverseAdjBiorthWaveletTransform(dom=self.range,
+                                                        nscales=self.nscales,
+                                                        wbasis=self.wbasis)
+            else:
+                return super().adjoint
 
     @property
     def inverse(self):
         """The inverse wavelet transform."""
-        return WaveletTransform(dom=self.range, nscales=self.nscales,
-                                wbasis=self.wbasis, mode=self.mode)
+        if not isinstance(self.wbasis, pywt.Wavelet):
+            return BiorthWaveletTransform(dom=self.range, ran=self.domain,
+                                          nscales=self.nscales,
+                                          wbasis=self.wbasis)
+        elif isinstance(self.wbasis, pywt.Wavelet):
+            return WaveletTransform(dom=self.range, nscales=self.nscales,
+                                    wbasis=self.wbasis, mode=self.mode)
+
+
+class BiorthWaveletTransform(Operator):
+    """Discrete biorthogonal wavelet trafo between discrete L2 spaces."""
+
+    def __init__(self, dom, nscales, wbasis):
+        """Initialize a new instance.
+
+        Parameters
+        ----------
+        dom : `DiscreteLp`
+            Domain of the biorthogonal wavelet transform (the "image domain").
+            The exponent :math:`p` of the discrete :math:`L^p`
+            space must be equal to 2.0.
+        nscales : `int`
+            Number of scaling levels in the wavelet transform.
+        wbasis : `str`
+            (``'JOSbiorthN'``) J.O. Stomberg's biorthogonal wavelets
+            with ``N`` referring to the filter length.
+            Possible values are:
+
+            1, 3, 5, 7, 9
+
+        Signal extention mode: reflexion
+        """
+
+        self.nscales = int(nscales)
+        self.wbasis = wbasis
+
+        if not isinstance(dom, DiscreteLp):
+            raise TypeError('domain {!r} is not a `DiscreteLp` instance.'
+                            ''.format(dom))
+
+        if dom.exponent != 2.0:
+            raise ValueError('domain Lp exponent is {} instead of 2.0.'
+                             ''.format(dom.exponent))
+
+        ndim = dom.ndim
+        if ndim == 1:
+            max_level = np.log2(dom.grid.shape[0])
+        elif ndim == 2:
+            max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1]))
+        elif ndim == 3:
+            max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
+                                dom.grid.shape[2]))
+        else:
+            raise NotImplementedError('ndim {} not 1, 2 or 3'
+                                      ''.format(len(dom.ndim)))
+
+        max_level = np.ceil(max_level)
+        if nscales > max_level:
+            raise ValueError('Maximum useful number of scaling levels is {}, '
+                             'got {}.'.format(max_level, self.nscales))
+            #raiseETC ('Setting {} to {}' .format(self.nscales, max_level))
+
+        filterlength = int(wbasis[9])
+        if filterlength not in (1, 3, 5, 7, 9):
+            raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
+                                      ''.format(filterlength))
+
+        ran_size = dom.size
+        ran = dom.dspace_type(ran_size, dtype=dom.dtype)
+        super().__init__(dom, ran, linear=True)
+
+    def _call(self, x):
+        """Compute the discrete biorthogonal wavelet transform.
+
+        Parameters
+        ----------
+        x : `DiscreteLpVector`
+
+        Returns
+        -------
+        arr : `numpy.ndarray`
+            Flattened and concatenated coefficient array
+            The length of the array depends on the size of input image to
+            be transformed and on the chosen wavelet basis.
+        """
+        filterlength = int(self.wbasis[9])
+
+        if x.space.ndim == 1:
+            #A copy of x is unavoidable since bwt writes over the given inputs
+            x_cpy = x.copy()
+            x_cpy = x_cpy.asarray()
+            coeff = np.asarray(self.range.element())
+            bwt.wavelet_transform1D(x_cpy.ctypes.data, x_cpy.shape[0],
+                                    filterlength,
+                                    self.nscales,
+                                    coeff.ctypes.data)
+            return coeff
+
+        if x.space.ndim == 2:
+            x_cpy = x.copy()
+            x_cpy = x_cpy.asarray()
+            coeff = np.asarray(self.range.element())
+            bwt.wavelet_transform2D(x_cpy.ctypes.data, x_cpy.shape[0],
+                                    x_cpy.shape[1], filterlength, self.nscales,
+                                    coeff.ctypes.data)
+            return self.range.element(coeff)
+
+        if x.space.ndim == 3:
+            x_cpy = x.copy()
+            x_cpy = x_cpy.asarray()
+            coeff = np.asarray(self.range.element())
+            bwt.wavelet_transform3D(x_cpy.ctypes.data, x_cpy.shape[0],
+                                    x_cpy.shape[1], x_cpy.shape[2],
+                                    filterlength, self.nscales,
+                                    coeff.ctypes.data)
+            return self.range.element(coeff)
+
+    @property
+    def adjoint(self):
+        """The biorthogonal adjoint wavelet transform."""
+        return AdjBiorthWaveletTransform(ran=self.domain,
+                                         nscales=self.nscales,
+                                         wbasis=self.wbasis)
+
+    @property
+    def inverse(self):
+        """The biorthogonal inverse wavelet transform."""
+        return InverseBiorthWaveletTransform(ran=self.domain,
+                                             nscales=self.nscales,
+                                             wbasis=self.wbasis)
+
+    @property
+    def adjointinverse(self):
+        """The inverse of the adjoint of biorthogonal wavelet transform."""
+        return InverseAdjBiorthWaveletTransform(dom=self.domain,
+                                                nscales=self.nscales,
+                                                wbasis=self.wbasis)
+
+
+class AdjBiorthWaveletTransform(Operator):
+    """Discrete adjoint of biorthogonal wavelet transform between L2 space."""
+
+    def __init__(self, ran, nscales, wbasis):
+        """Initialize a new instance.
+
+        Parameters
+        ----------
+        ran : `DiscreteLpVector` ("image domain")
+
+        nscales : `int`
+            Number of scaling levels in the wavelet transform.
+
+        wbasis : `str`
+            (``'JOSbiorthN'``) J.-O. Stomberg's biorthogonal wavelets
+            where ``N`` refers to the filter length.
+            Possible values are:
+
+            1, 3, 5, 7, 9
+
+        Signal extension mode: reflexion
+        """
+
+        self.nscales = int(nscales)
+        self.wbasis = wbasis
+
+        if not isinstance(ran, DiscreteLp):
+            raise TypeError('domain {!r} is not a `DiscreteLp` instance.'
+                            ''.format(ran))
+
+        if ran.exponent != 2.0:
+            raise ValueError('domain Lp exponent is {} instead of 2.0.'
+                             ''.format(ran.exponent))
+
+        ndim = ran.ndim
+        if ndim == 1:
+            max_level = np.log2(ran.grid.shape[0])
+        elif ndim == 2:
+            max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1]))
+        elif ndim == 3:
+            max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
+                                ran.grid.shape[2]))
+        else:
+            raise NotImplementedError('ndim {} not 1, 2 or 3'
+                                      ''.format(len(ran.ndim)))
+
+        max_level = np.ceil(max_level)
+        if nscales > max_level:
+            raise ValueError('Maximum useful number of scaling levels is {}, '
+                             'got {}.'.format(max_level, self.nscales))
+            #raiseETC ('Setting {} to {}' .format(self.nscales, max_level))
+
+        filterlength = int(wbasis[9])
+        if filterlength not in (1, 3, 5, 7, 9):
+            raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
+                                      ''.format(filterlength))
+
+        dom_size = ran.size
+        dom = ran.dspace_type(dom_size, dtype=ran.dtype)
+        super().__init__(dom, ran, linear=True)
+
+    def _call(self, coeff):
+        """Discrete adjoint wavelet transform with biorthogonal wavelets.
+
+        Parameters
+        ----------
+        coeff : `DiscreteLpVector`
+
+        Returns
+        -------
+        arr : `DiscreteLpVector`
+        """
+        filterlength = int(self.wbasis[9])
+        if len(self.range.grid.shape) == 1:
+            nx = self.range.grid.shape[0]
+            #A copy of coeff is unavoidable since bwt writes over
+            #the given input
+            coeff_in = coeff.copy()
+            coeff_in = coeff_in.asarray()
+            x = np.asarray(self.range.element())
+            bwt.adjointwavelet_transform1D(coeff_in.ctypes.data, nx,
+                                           filterlength,
+                                           self.nscales, x.ctypes.data)
+            return self.range.element(x)
+
+        elif len(self.range.grid.shape) == 2:
+            (nx, ny) = (self.range.grid.shape[0], self.range.grid.shape[1])
+            coeff_in = coeff.copy()
+            coeff_in = coeff_in.asarray()
+            x = np.asarray(self.range.element())
+            bwt.adjointwavelet_transform2D(coeff_in.ctypes.data, nx, ny,
+                                           filterlength,
+                                           self.nscales, x.ctypes.data)
+            return self.range.element(x)
+
+        elif len(self.range.grid.shape) == 3:
+            (nx, ny, nz) = (self.range.grid.shape[0], self.range.grid.shape[1],
+                            self.range.grid.shape[2])
+            coeff_in = coeff.copy()
+            coeff_in = coeff_in.asarray()
+            x = np.asarray(self.range.element())
+            bwt.adjointwavelet_transform3D(coeff_in.ctypes.data, nx, ny, nz,
+                                           filterlength, self.nscales,
+                                           x.ctypes.data)
+            return self.range.element(x)
+
+    @property
+    def adjoint(self):
+        """The biorthogonal wavelet transform."""
+        return BiorthWaveletTransform(dom=self.range, nscales=self.nscales,
+                                      wbasis=self.wbasis)
+
+    @property
+    def inverse(self):
+        """The inverse of the adjoint of biorthogonal wavelet transform."""
+        return InverseAdjBiorthWaveletTransform(ran=self.range,
+                                                nscales=self.nscales,
+                                                wbasis=self.wbasis)
+
+
+class InverseBiorthWaveletTransform(Operator):
+    """
+    """
+
+    def __init__(self, ran, nscales, wbasis):
+        """Initialize a new instance.
+
+        Parameters
+        ----------
+        ran : `DiscreteLpVector` ("image domain")
+
+        nscales : `int`
+            Number of scaling levels in the wavelet transform.
+            The maximum number of usable scales with J.-O.S.
+            biorthogonal wavelets can be determined using xxx
+        wbasis : `str`
+            (``'JOSbiorthN'``) J.-O. Stromberg's biorthogonal wavelets
+            ``N`` is the filter length.
+            Possible values are:
+
+            1, 3, 5, 7 or 9
+
+        Signal extention mode: reflection
+        """
+        self.nscales = int(nscales)
+        self.wbasis = wbasis
+
+        if not isinstance(ran, DiscreteLp):
+            raise TypeError('domain {!r} is not a `DiscreteLp` instance.'
+                            ''.format(ran))
+
+        if ran.exponent != 2.0:
+            raise ValueError('domain Lp exponent is {} instead of 2.0.'
+                             ''.format(ran.exponent))
+
+        ndim = ran.ndim
+        if ndim == 1:
+            max_level = np.log2(ran.grid.shape[0])
+        elif ndim == 2:
+            max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1]))
+        elif ndim == 3:
+            max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
+                                ran.grid.shape[2]))
+        else:
+            raise NotImplementedError('ndim {} not 1, 2 or 3'
+                                      ''.format(len(ran.ndim)))
+
+        max_level = np.ceil(max_level)
+        if nscales > max_level:
+            raise ValueError('Maximum useful number of scaling levels is {}, '
+                             'got {}.'.format(max_level, self.nscales))
+            #raiseETC ('Setting {} to {}' .format(self.nscales, max_level))
+            #nscales = max_level
+
+        filterlength = int(wbasis[9])
+        if filterlength not in (1, 3, 5, 7, 9):
+            raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
+                                      ''.format(filterlength))
+
+        dom_size = ran.size
+        dom = ran.dspace_type(dom_size, dtype=ran.dtype)
+        super().__init__(dom, ran, linear=True)
+
+    def _call(self, coeff):
+        """Discrete inverse wavelet transform with biorthogonal wavelets.
+
+        Parameters
+        ----------
+        coeff : `DiscreteLpVector`
+
+        Returns
+        -------
+        arr : `DiscreteLpVector`
+        """
+        filterlength = int(self.wbasis[9])
+        if len(self.range.grid.shape) == 1:
+            nx = self.range.grid.shape[0]
+            coeff_in = coeff.copy()
+            coeff_in = coeff_in.asarray()
+            x = np.asarray(self.range.element())
+            bwt.invwavelet_transform1D(coeff_in.ctypes.data, nx,
+                                       filterlength,
+                                       self.nscales, x.ctypes.data)
+            return self.range.element(x)
+
+        elif len(self.range.grid.shape) == 2:
+            (nx, ny) = (self.range.grid.shape[0], self.range.grid.shape[1])
+            coeff_in = coeff.copy()
+            coeff_in = coeff_in.asarray()
+            x = np.asarray(self.range.element())
+            bwt.invwavelet_transform2D(coeff_in.ctypes.data, nx, ny,
+                                       filterlength,
+                                       self.nscales, x.ctypes.data)
+            return self.range.element(x)
+
+        elif len(self.range.grid.shape) == 3:
+            (nx, ny, nz) = (self.range.grid.shape[0], self.range.grid.shape[1],
+                            self.range.grid.shape[2])
+            coeff_in = coeff.copy()
+            coeff_in = coeff_in.asarray()
+            x = np.asarray(self.range.element())
+            bwt.invwavelet_transform3D(coeff_in.ctypes.data, nx, ny, nz,
+                                       filterlength,
+                                       self.nscales, x.ctypes.data)
+            return self.range.element(x)
+
+    @property
+    def adjoint(self):
+        """The biorthogonal wavelet transform."""
+        return InverseAdjBiorthWaveletTransform(dom=self.range,
+                                                nscales=self.nscales,
+                                                wbasis=self.wbasis)
+
+    @property
+    def inverse(self):
+        """The inverse of the adjoint of biorthogonal wavelet transform."""
+        return BiorthWaveletTransform(dom=self.range, nscales=self.nscales,
+                                      wbasis=self.wbasis)
+
+
+class InverseAdjBiorthWaveletTransform(Operator):
+    """Discrete biorthogonal wavelet transfrom, inverse of adjoint
+    """
+    def __init__(self, dom, nscales, wbasis):
+        """Initialize a new instance.
+
+        Parameters
+        ----------
+        dom : `DiscreteLp` ("image domain")
+        nscales : `int`
+            Number of scaling levels in the wavelet transform.
+            The maximum number of usable scales with J.-O.S.
+            biorthogonal wavelets can be determined using xxx
+        wbasis : `str`
+            (``'JOSbiorthN'``) J.-O. Stromberg's biorthogonal wavelets
+            ``N`` is the filter length.
+            Possible values are:
+
+            1, 3, 5, 7 or 9
+
+        signal extension mode: reflection
+        """
+
+        self.nscales = int(nscales)
+        self.wbasis = wbasis
+
+        if not isinstance(dom, DiscreteLp):
+            raise TypeError('domain {!r} is not a `DiscreteLp` instance.'
+                            ''.format(dom))
+
+        if dom.exponent != 2.0:
+            raise ValueError('domain Lp exponent is {} instead of 2.0.'
+                             ''.format(dom.exponent))
+
+        ndim = dom.ndim
+        if ndim == 1:
+            max_level = np.log2(dom.grid.shape[0])
+        elif ndim == 2:
+            max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1]))
+        elif ndim == 3:
+            max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
+                                dom.grid.shape[2]))
+        else:
+            raise NotImplementedError('ndim {} not 1, 2 or 3'
+                                      ''.format(len(dom.ndim)))
+
+        max_level = np.ceil(max_level)
+        if nscales > max_level:
+            raise ValueError('Maximum useful number of scaling levels is {}, '
+                             'got {}.'.format(max_level, self.nscales))
+            #raiseETC ('Setting {} to {}' .format(self.nscales, max_level))
+
+        filterlength = int(wbasis[9])
+        if filterlength not in (1, 3, 5, 7, 9):
+            raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
+                                      ''.format(filterlength))
+
+        ran_size = dom.size
+        ran = dom.dspace_type(ran_size, dtype=dom.dtype)
+        super().__init__(dom, ran, linear=True)
+
+    def _call(self, x):
+        """Discrete biorthogonal wavelet transform, inverse of adjoint.
+
+        Parameters
+        ----------
+        x : `DiscreteLpVector`
+
+        Returns
+        -------
+        arr : `numpy.ndarray`
+            Flattened and concatenated coefficient array
+        """
+        filterlength = int(self.wbasis[9])
+        if x.space.ndim == 1:
+            x_cpy = x.copy()
+            x_cpy = x_cpy.asarray()
+            coeff = np.asarray(self.range.element())
+            bwt.adjointinvwavelet_transform1D(x_cpy.ctypes.data,
+                                              x_cpy.shape[0], filterlength,
+                                              self.nscales, coeff.ctypes.data)
+            return self.range.element(coeff)
+
+        if x.space.ndim == 2:
+            x_cpy = x.copy()
+            x_cpy = x_cpy.asarray()
+            coeff = np.asarray(self.range.element())
+            bwt.adjointinvwavelet_transform2D(x_cpy.ctypes.data,
+                                              x_cpy.shape[0], x_cpy.shape[1],
+                                              filterlength, self.nscales,
+                                              coeff.ctypes.data)
+            return self.range.element(coeff)
+
+        if x.space.ndim == 3:
+            x_cpy = x.copy()
+            x_cpy = x_cpy.asarray()
+            coeff = np.asarray(self.range.element())
+            bwt.adjointinvwavelet_transform3D(x_cpy.ctypes.data,
+                                              x_cpy.shape[0], x_cpy.shape[1],
+                                              x_cpy.shape[2], filterlength,
+                                              self.nscales, coeff.ctypes.data)
+            return self.range.element(coeff)
+
+    @property
+    def adjoint(self):
+        """The biorthogonal adjoint wavelet transform."""
+        return InverseBiorthWaveletTransform(ran=self.domain,
+                                             nscales=self.nscales,
+                                             wbasis=self.wbasis)
+
+    @property
+    def inverse(self):
+        """The biorthogonal inverse wavelet transform."""
+        return AdjBiorthWaveletTransform(ran=self.domain,
+                                         nscales=self.nscales,
+                                         wbasis=self.wbasis)
 
 if __name__ == '__main__':
     from doctest import testmod, NORMALIZE_WHITESPACE
