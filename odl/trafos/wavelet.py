@@ -25,7 +25,7 @@ from builtins import range, str, super
 
 # External
 import numpy as np
-#import jos_wavelets as bwt
+
 try:
     import pywt
     PYWAVELETS_AVAILABLE = True
@@ -46,7 +46,7 @@ __all__ = ('WaveletTransform', 'InverseWaveletTransform',
            'AdjBiorthWaveletTransform',
            'InverseBiorthWaveletTransform',
            'InverseAdjBiorthWaveletTransform',
-           'PYWAVELETS_AVAILABLE')
+           'PYWAVELETS_AVAILABLE', 'JOSWAVELETS_AVAILABLE')
 
 
 _SUPPORTED_IMPL = ('pywt',)

@@ -165,8 +165,11 @@ try:
     skip_if_no_pywavelets = pytest.mark.skipif(
         "not odl.trafos.wavelet.PYWAVELETS_AVAILABLE",
         reason='Wavelet not available')
+    skip_if_no_joswavelets = pytest.mark.skipif(
+        "not odl.trafos.wavelet.JOSWAVELETS_AVAILABLE",
+        reason='jos_wavelet not available')
 except ImportError:
-    skip_if_no_cuda = skip_if_no_pywavelets = _pass
+    skip_if_no_cuda = skip_if_no_pywavelets = skip_if_no_joswavelets = _pass
 
 
 class FailCounter(object):

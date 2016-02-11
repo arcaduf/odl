@@ -212,6 +212,7 @@ def test_dwt1d(wbasis):
     assert all_almost_equal(reconstruction.asarray(), x)
 
 
+@skip_if_no_pywavelets
 def test_dwt2d():
     # 2D test
     n = 16
@@ -257,6 +258,7 @@ def test_dwt2d():
     assert all_almost_equal(reconstruction2.asarray(), x)
 
 
+@skip_if_no_pywavelets
 def test_dwt3d():
     # 3D test
     n = 16
@@ -299,6 +301,7 @@ def test_dwt3d():
     assert all_almost_equal(reconstruction2, disc_phantom)
 
 
+@skip_if_no_pywavelets
 def test_bwt2d():
    # 2D test
     n = 16
@@ -338,6 +341,7 @@ def test_bwt2d():
     assert reconstruction3 in disc_domain
 
 
+@skip_if_no_pywavelets
 def test_bwt3d():
     # 3D test
     n = 16
