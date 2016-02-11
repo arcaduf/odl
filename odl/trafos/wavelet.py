@@ -544,7 +544,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
 
         wbasis :  {`str`, ``pywt.Wavelet``}
             If a string is given, converts to a ``pywt.Wavelet``
-            Except when string starts with `JOS`, in that case
+            Except when string starts with `jos`, in that case
             calles J.-O. Stromberg's wavelet library.
 
             Describes properties of a selected wavelet basis.
@@ -567,7 +567,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
 
             Discrete FIR approximation of Meyer wavelet (``'dmey'``)
 
-            J.-O. Stromberg's biorthogonal wavelets (``'JOSbiorthN'``)
+            J.-O. Stromberg's biorthogonal wavelets (``'josbiorthN'``)
             ``N`` defines the filter length.
             Possible values for the filter length are :
 
@@ -616,7 +616,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
         else:
             try:
                 wbasis = wbasis + ''
-                if wbasis.startswith('JOS'):
+                if wbasis.startswith('jos'):
                     self.wbasis = wbasis
                 else:
                     self.wbasis = pywt.Wavelet(wbasis)
@@ -682,7 +682,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
         """Whether or not the wavelet basis is bi-orthogonal."""
         if isinstance(self.wbasis, pywt.Wavelet):
             return self.wbasis.biorthogonal
-        elif self.wbasis.startswith('JOS'):
+        elif self.wbasis.startswith('jos'):
             return True
         else:
             return False
@@ -795,7 +795,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
 
             Discrete FIR approximation of Meyer wavelet (``dmey``)
 
-            Biorthogonal wavelets of J.-O. Stomberg (``'JOSbiorthN'``)
+            Biorthogonal wavelets of J.-O. Stromberg (``'josbiorthN'``)
             ``N`` refers to the filter length.
             Possible values for filter lengths are:
 
@@ -823,7 +823,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
             'per': periodization -- like periodic-padding but gives the
             smallest possible number of decomposition coefficients.
 
-            With J.-O. Stomberg's biorthogonal wavelets only signal
+            With J.-O. Stromberg's biorthogonal wavelets only signal
             extension mode 'sym' is available.
         """
         self.nscales = int(nscales)
@@ -834,7 +834,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
         else:
             try:
                 wbasis = wbasis + ''
-                if wbasis.startswith('JOS'):
+                if wbasis.startswith('jos'):
                     self.wbasis = wbasis
                 else:
                     self.wbasis = pywt.Wavelet(wbasis)
@@ -902,7 +902,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
         """Whether or not the wavelet basis is bi-orthogonal."""
         if isinstance(self.wbasis, pywt.Wavelet):
             return self.wbasis.biorthogonal
-        elif self.wbasis.startswith('JOS'):
+        elif self.wbasis.startswith('jos'):
             return True
         else:
             return False
@@ -981,7 +981,7 @@ class BiorthWaveletTransform(Operator):
         nscales : `int`
             Number of scaling levels in the wavelet transform.
         wbasis : `str`
-            (``'JOSbiorthN'``) J.O. Stomberg's biorthogonal wavelets
+            (``'josbiorthN'``) J.O. Stromberg's biorthogonal wavelets
             with ``N`` referring to the filter length.
             Possible values are:
 
@@ -1096,7 +1096,7 @@ class AdjBiorthWaveletTransform(Operator):
             Number of scaling levels in the wavelet transform.
 
         wbasis : `str`
-            (``'JOSbiorthN'``) J.-O. Stomberg's biorthogonal wavelets
+            (``'josbiorthN'``) J.-O. Stromberg's biorthogonal wavelets
             where ``N`` refers to the filter length.
             Possible values are:
 
@@ -1200,7 +1200,7 @@ class InverseBiorthWaveletTransform(Operator):
             The maximum number of usable scales with J.-O.S.
             biorthogonal wavelets can be determined using xxx
         wbasis : `str`
-            (``'JOSbiorthN'``) J.-O. Stromberg's biorthogonal wavelets
+            (``'josbiorthN'``) J.-O. Stromberg's biorthogonal wavelets
             ``N`` is the filter length.
             Possible values are:
 
@@ -1301,7 +1301,7 @@ class InverseAdjBiorthWaveletTransform(Operator):
             The maximum number of usable scales with J.-O.S.
             biorthogonal wavelets can be determined using xxx
         wbasis : `str`
-            (``'JOSbiorthN'``) J.-O. Stromberg's biorthogonal wavelets
+            (``'josbiorthN'``) J.-O. Stromberg's biorthogonal wavelets
             ``N`` is the filter length.
             Possible values are:
 
