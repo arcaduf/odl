@@ -651,18 +651,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
                                           '1, 2 or 3 are supported '
                                           ''.format((dom.ndim)))
         else:
-            if dom.ndim == 1:
-                max_level = np.log2(dom.grid.shape[0])
-            elif dom.ndim == 2:
-                max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1]))
-            elif dom.ndim == 3:
-                max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
-                                        dom.grid.shape[2]))
-            else:
-                raise NotImplementedError('domain has {} dimensions, '
-                                          '1, 2 or 3 are supported '
-                                          ''.format((dom.ndim)))
-            max_level = np.ceil(max_level)
+            max_level = int(np.ceil(np.log2(np.max(dom.shape))))
             ran_size = dom.size
             filterlength = int(self.wbasis[-1])
             if filterlength not in (1, 3, 5, 7, 9):
@@ -882,19 +871,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
                                           ''.format((ran.ndim)))
 
         else:
-            if ran.ndim == 1:
-                max_level = np.log2(ran.grid.shape[0])
-            elif ran.ndim == 2:
-                max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1]))
-            elif ran.ndim == 3:
-                max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
-                                        ran.grid.shape[2]))
-            else:
-                raise NotImplementedError('domain has {} dimensions, '
-                                          '1, 2 or 3 are supported '
-                                          ''.format((ran.ndim)))
-            max_level = np.ceil(max_level)
-            #Do we need this as a helper function?
+            max_level = int(np.ceil(np.log2(np.max(ran.shape))))
             dom_size = ran.size
             filterlength = int(wbasis[9])
             if filterlength not in (1, 3, 5, 7, 9):
@@ -1022,19 +999,8 @@ class BiorthWaveletTransform(Operator):
             raise ValueError('domain Lp exponent is {} instead of 2.0.'
                              ''.format(dom.exponent))
 
-        if dom.ndim == 1:
-            max_level = np.log2(dom.grid.shape[0])
-        elif dom.ndim == 2:
-            max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1]))
-        elif dom.ndim == 3:
-            max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
-                                dom.grid.shape[2]))
-        else:
-            raise NotImplementedError('domain has {} dimensions, '
-                                      '1, 2 or 3 are supported '
-                                      ''.format((dom.ndim)))
+        max_level = int(np.ceil(np.log2(np.max(dom.shape))))
 
-        max_level = np.ceil(max_level)
         if nscales > max_level:
             raise ValueError('Maximum useful number of scaling levels is {}, '
                              'got {}.'.format(max_level, self.nscales))
@@ -1149,20 +1115,7 @@ class AdjBiorthWaveletTransform(Operator):
         if ran.exponent != 2.0:
             raise ValueError('domain Lp exponent is {} instead of 2.0.'
                              ''.format(ran.exponent))
-
-        if ran.ndim == 1:
-            max_level = np.log2(ran.grid.shape[0])
-        elif ran.ndim == 2:
-            max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1]))
-        elif ran.ndim == 3:
-            max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
-                                ran.grid.shape[2]))
-        else:
-            raise NotImplementedError('domain has {} dimensions, '
-                                      '1, 2 or 3 are supported '
-                                      ''.format((ran.ndim)))
-
-        max_level = np.ceil(max_level)
+        max_level = int(np.ceil(np.log2(np.max(ran.shape))))
         if nscales > max_level:
             raise ValueError('Maximum useful number of scaling levels is {}, '
                              'got {}.'.format(max_level, self.nscales))
@@ -1266,20 +1219,8 @@ class InverseBiorthWaveletTransform(Operator):
         if ran.exponent != 2.0:
             raise ValueError('domain Lp exponent is {} instead of 2.0.'
                              ''.format(ran.exponent))
+        max_level = int(np.ceil(np.log2(np.max(ran.shape))))
 
-        if ran.ndim == 1:
-            max_level = np.log2(ran.grid.shape[0])
-        elif ran.ndim == 2:
-            max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1]))
-        elif ran.ndim == 3:
-            max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
-                                ran.grid.shape[2]))
-        else:
-            raise NotImplementedError('domain has {} dimensions, '
-                                      '1, 2 or 3 are supported '
-                                      ''.format((ran.ndim)))
-
-        max_level = np.ceil(max_level)
         if nscales > max_level:
             raise ValueError('Maximum useful number of scaling levels is {}, '
                              'got {}.'.format(max_level, self.nscales))
@@ -1382,19 +1323,7 @@ class InverseAdjBiorthWaveletTransform(Operator):
             raise ValueError('domain Lp exponent is {} instead of 2.0.'
                              ''.format(dom.exponent))
 
-        if dom.ndim == 1:
-            max_level = np.log2(dom.grid.shape[0])
-        elif dom.ndim == 2:
-            max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1]))
-        elif dom.ndim == 3:
-            max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
-                                dom.grid.shape[2]))
-        else:
-            raise NotImplementedError('domain has {} dimensions, '
-                                      '1, 2 or 3 are supported '
-                                      ''.format((dom.ndim)))
-
-        max_level = np.ceil(max_level)
+        max_level = int(np.ceil(np.log2(np.max(dom.shape))))
         if nscales > max_level:
             raise ValueError('Maximum useful number of scaling levels is {}, '
                              'got {}.'.format(max_level, self.nscales))
