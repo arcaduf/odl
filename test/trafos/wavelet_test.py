@@ -169,7 +169,7 @@ def test_orhogonality_check():
     nPoints = np.array([n])
     disc_domain = odl.uniform_discr_fromspace(domain, nPoints)
 
-     # Create the discrete wavelet transform operator.
+    # Create the discrete wavelet transform operator.
     # Only the domain of the operator needs to be defined
     Wop = WaveletTransform(disc_domain, nscales, wbasis, mode)
     assert Wop.is_orthogonal
@@ -303,7 +303,7 @@ def test_dwt3d():
 
 @skip_if_no_pywavelets
 def test_bwt2d():
-   # 2D test
+    # 2D test
     n = 16
     x = np.zeros((n, n))
     x[5:10, 5:10] = 1
