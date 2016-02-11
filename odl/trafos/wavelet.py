@@ -759,7 +759,7 @@ class InverseWaveletTransform(Operator):
 
     """Discrete inverse wavelet trafo between discrete L2 spaces."""
 
-    def __init__(self, ran, nscales, wbasis, mode):
+    def __init__(self, ran, nscales, wbasis, mode=None):
         """Initialize a new instance.
 
          Parameters
@@ -833,7 +833,10 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
             extension mode 'sym' is available.
         """
         self.nscales = int(nscales)
-        self.mode = str(mode).lower()
+        if mode is None:
+            self.mode = 'per'
+        else:
+            self.mode = str(mode).lower()
 
         if isinstance(wbasis, pywt.Wavelet):
             self.wbasis = wbasis
@@ -841,6 +844,9 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
             try:
                 wbasis = wbasis + ''
                 if wbasis.startswith('jos'):
+                    if mode is not None:
+                        raise ValueError('mode not supported for JOS '
+                                         'wavelets.')
                     self.wbasis = wbasis
                 else:
                     self.wbasis = pywt.Wavelet(wbasis)
