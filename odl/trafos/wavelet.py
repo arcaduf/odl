@@ -659,8 +659,10 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
             elif ndim == 3:
                 max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
                                         dom.grid.shape[2]))
+            else:
+                raise NotImplementedError('ndim {} not 1, 2 or 3'
+                                          ''.format(len(dom.ndim)))
             max_level = np.ceil(max_level)
-
             ran_size = dom.size
             filterlength = int(self.wbasis[-1])
             if filterlength not in (1, 3, 5, 7, 9):
@@ -689,6 +691,10 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
         """Whether or not the wavelet basis is bi-orthogonal."""
         if isinstance(self.wbasis, pywt.Wavelet):
             return self.wbasis.biorthogonal
+        elif self.wbasis.startswith('JOS'):
+            return True
+        else:
+            return False
 
     def _call(self, x):
         """Compute the discrete wavelet transform.
@@ -709,7 +715,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
                                         wbasis=self.wbasis)
             coeff = Op(x)
             return self.range.element(coeff)
-        elif isinstance(self.wbasis, pywt.Wavelet):
+        else:
             if x.space.ndim == 1:
                 coeff_list = pywt.wavedec(x, self.wbasis, self.mode,
                                           self.nscales)
@@ -748,7 +754,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
             return InverseBiorthWaveletTransform(ran=self.domain,
                                                  nscales=self.nscales,
                                                  wbasis=self.wbasis)
-        elif isinstance(self.wbasis, pywt.Wavelet):
+        else:
             return InverseWaveletTransform(ran=self.domain,
                                            nscales=self.nscales,
                                            wbasis=self.wbasis,
@@ -886,6 +892,9 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
             elif ndim == 3:
                 max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
                                         ran.grid.shape[2]))
+            else:
+                raise NotImplementedError('ndim {} not 1, 2 or 3'
+                                          ''.format(ran.ndim))
             max_level = np.ceil(max_level)
             #Do we need this as a helper function?
             dom_size = ran.size
@@ -916,6 +925,10 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
         """Whether or not the wavelet basis is bi-orthogonal."""
         if isinstance(self.wbasis, pywt.Wavelet):
             return self.wbasis.biorthogonal
+        elif self.wbasis.startswith('JOS'):
+            return True
+        else:
+            return False
 
     def _call(self, coeff):
         """Compute the discrete 1D, 2D or 3D inverse wavelet transform.
@@ -935,7 +948,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
                                                wbasis=self.wbasis)
             x = Op(coeff)
             return self.range.element(x)
-        elif isinstance(self.wbasis, pywt.Wavelet):
+        else:
             if len(self.range.grid.shape) == 1:
                 coeff_list = array_to_pywt_coeff(coeff, self.size_list)
                 x = pywt.waverec(coeff_list, self.wbasis, self.mode)
@@ -971,7 +984,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
             return BiorthWaveletTransform(dom=self.range, ran=self.domain,
                                           nscales=self.nscales,
                                           wbasis=self.wbasis)
-        elif isinstance(self.wbasis, pywt.Wavelet):
+        else:
             return WaveletTransform(dom=self.range, nscales=self.nscales,
                                     wbasis=self.wbasis, mode=self.mode)
 
@@ -1065,7 +1078,7 @@ class BiorthWaveletTransform(Operator):
                                     coeff.ctypes.data)
             return coeff
 
-        if x.space.ndim == 2:
+        elif x.space.ndim == 2:
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
             coeff = np.asarray(self.range.element())
@@ -1074,7 +1087,7 @@ class BiorthWaveletTransform(Operator):
                                     coeff.ctypes.data)
             return self.range.element(coeff)
 
-        if x.space.ndim == 3:
+        elif x.space.ndim == 3:
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
             coeff = np.asarray(self.range.element())
@@ -1429,7 +1442,7 @@ class InverseAdjBiorthWaveletTransform(Operator):
                                               self.nscales, coeff.ctypes.data)
             return self.range.element(coeff)
 
-        if x.space.ndim == 2:
+        elif x.space.ndim == 2:
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
             coeff = np.asarray(self.range.element())
@@ -1439,7 +1452,7 @@ class InverseAdjBiorthWaveletTransform(Operator):
                                               coeff.ctypes.data)
             return self.range.element(coeff)
 
-        if x.space.ndim == 3:
+        elif x.space.ndim == 3:
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
             coeff = np.asarray(self.range.element())
