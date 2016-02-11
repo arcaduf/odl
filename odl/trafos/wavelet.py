@@ -651,12 +651,11 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
                                           ''.format(len(dom.ndim)))
 
         else:
-            ndim = dom.ndim
-            if ndim == 1:
+            if dom.ndim == 1:
                 max_level = np.log2(dom.grid.shape[0])
-            elif ndim == 2:
+            elif dom.ndim == 2:
                 max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1]))
-            elif ndim == 3:
+            elif dom.ndim == 3:
                 max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
                                         dom.grid.shape[2]))
             else:
@@ -719,20 +718,17 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
             if x.space.ndim == 1:
                 coeff_list = pywt.wavedec(x, self.wbasis, self.mode,
                                           self.nscales)
-                coeff_arr = pywt_coeff_to_array(coeff_list, self.size_list)
-                return self.range.element(coeff_arr)
+                return pywt_coeff_to_array(coeff_list, self.size_list)
 
             if x.space.ndim == 2:
                 coeff_list = pywt.wavedec2(x, self.wbasis, self.mode,
                                            self.nscales)
-                coeff_arr = pywt_coeff_to_array(coeff_list, self.size_list)
-                return self.range.element(coeff_arr)
+                return pywt_coeff_to_array(coeff_list, self.size_list)
 
             if x.space.ndim == 3:
                 coeff_dict = wavelet_decomposition3d(x, self.wbasis, self.mode,
                                                      self.nscales)
-                coeff_arr = pywt_coeff_to_array(coeff_dict, self.size_list)
-                return self.range.element(coeff_arr)
+                return pywt_coeff_to_array(coeff_dict, self.size_list)
 
     @property
     def adjoint(self):
@@ -884,12 +880,11 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
                                           ''.format(ran.ndim))
 
         else:
-            ndim = ran.ndim
-            if ndim == 1:
+            if ran.ndim == 1:
                 max_level = np.log2(ran.grid.shape[0])
-            elif ndim == 2:
+            elif ran.ndim == 2:
                 max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1]))
-            elif ndim == 3:
+            elif ran.ndim == 3:
                 max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
                                         ran.grid.shape[2]))
             else:
@@ -1024,12 +1019,11 @@ class BiorthWaveletTransform(Operator):
             raise ValueError('domain Lp exponent is {} instead of 2.0.'
                              ''.format(dom.exponent))
 
-        ndim = dom.ndim
-        if ndim == 1:
+        if dom.ndim == 1:
             max_level = np.log2(dom.grid.shape[0])
-        elif ndim == 2:
+        elif dom.ndim == 2:
             max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1]))
-        elif ndim == 3:
+        elif dom.ndim == 3:
             max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
                                 dom.grid.shape[2]))
         else:
@@ -1047,8 +1041,7 @@ class BiorthWaveletTransform(Operator):
             raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
                                       ''.format(filterlength))
 
-        ran_size = dom.size
-        ran = dom.dspace_type(ran_size, dtype=dom.dtype)
+        ran = dom.dspace_type(dom.size, dtype=dom.dtype)
         super().__init__(dom, ran, linear=True)
 
     def _call(self, x):
@@ -1071,7 +1064,7 @@ class BiorthWaveletTransform(Operator):
             #A copy of x is unavoidable since bwt writes over the given inputs
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
-            coeff = np.asarray(self.range.element())
+            coeff = self.range.element().asarray()
             bwt.wavelet_transform1D(x_cpy.ctypes.data, x_cpy.shape[0],
                                     filterlength,
                                     self.nscales,
@@ -1081,7 +1074,7 @@ class BiorthWaveletTransform(Operator):
         elif x.space.ndim == 2:
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
-            coeff = np.asarray(self.range.element())
+            coeff = self.range.element().asarray()
             bwt.wavelet_transform2D(x_cpy.ctypes.data, x_cpy.shape[0],
                                     x_cpy.shape[1], filterlength, self.nscales,
                                     coeff.ctypes.data)
@@ -1090,7 +1083,7 @@ class BiorthWaveletTransform(Operator):
         elif x.space.ndim == 3:
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
-            coeff = np.asarray(self.range.element())
+            coeff = self.range.element().asarray()
             bwt.wavelet_transform3D(x_cpy.ctypes.data, x_cpy.shape[0],
                                     x_cpy.shape[1], x_cpy.shape[2],
                                     filterlength, self.nscales,
@@ -1153,12 +1146,11 @@ class AdjBiorthWaveletTransform(Operator):
             raise ValueError('domain Lp exponent is {} instead of 2.0.'
                              ''.format(ran.exponent))
 
-        ndim = ran.ndim
-        if ndim == 1:
+        if ran.ndim == 1:
             max_level = np.log2(ran.grid.shape[0])
-        elif ndim == 2:
+        elif ran.ndim == 2:
             max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1]))
-        elif ndim == 3:
+        elif ran.ndim == 3:
             max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
                                 ran.grid.shape[2]))
         else:
@@ -1176,8 +1168,7 @@ class AdjBiorthWaveletTransform(Operator):
             raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
                                       ''.format(filterlength))
 
-        dom_size = ran.size
-        dom = ran.dspace_type(dom_size, dtype=ran.dtype)
+        dom = ran.dspace_type(ran.size, dtype=ran.dtype)
         super().__init__(dom, ran, linear=True)
 
     def _call(self, coeff):
@@ -1196,9 +1187,8 @@ class AdjBiorthWaveletTransform(Operator):
             nx = self.range.grid.shape[0]
             #A copy of coeff is unavoidable since bwt writes over
             #the given input
-            coeff_in = coeff.copy()
-            coeff_in = coeff_in.asarray()
-            x = np.asarray(self.range.element())
+            coeff_in = coeff.copy().asarray()
+            x = self.range.element().asarray()
             bwt.adjointwavelet_transform1D(coeff_in.ctypes.data, nx,
                                            filterlength,
                                            self.nscales, x.ctypes.data)
@@ -1206,9 +1196,8 @@ class AdjBiorthWaveletTransform(Operator):
 
         elif len(self.range.grid.shape) == 2:
             (nx, ny) = (self.range.grid.shape[0], self.range.grid.shape[1])
-            coeff_in = coeff.copy()
-            coeff_in = coeff_in.asarray()
-            x = np.asarray(self.range.element())
+            coeff_in = coeff.copy().asarray()
+            x = self.range.element().asarray()
             bwt.adjointwavelet_transform2D(coeff_in.ctypes.data, nx, ny,
                                            filterlength,
                                            self.nscales, x.ctypes.data)
@@ -1217,9 +1206,8 @@ class AdjBiorthWaveletTransform(Operator):
         elif len(self.range.grid.shape) == 3:
             (nx, ny, nz) = (self.range.grid.shape[0], self.range.grid.shape[1],
                             self.range.grid.shape[2])
-            coeff_in = coeff.copy()
-            coeff_in = coeff_in.asarray()
-            x = np.asarray(self.range.element())
+            coeff_in = coeff.copy().asarray()
+            x = self.range.element().asarray()
             bwt.adjointwavelet_transform3D(coeff_in.ctypes.data, nx, ny, nz,
                                            filterlength, self.nscales,
                                            x.ctypes.data)
@@ -1274,12 +1262,11 @@ class InverseBiorthWaveletTransform(Operator):
             raise ValueError('domain Lp exponent is {} instead of 2.0.'
                              ''.format(ran.exponent))
 
-        ndim = ran.ndim
-        if ndim == 1:
+        if ran.ndim == 1:
             max_level = np.log2(ran.grid.shape[0])
-        elif ndim == 2:
+        elif ran.ndim == 2:
             max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1]))
-        elif ndim == 3:
+        elif ran.ndim == 3:
             max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
                                 ran.grid.shape[2]))
         else:
@@ -1298,8 +1285,7 @@ class InverseBiorthWaveletTransform(Operator):
             raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
                                       ''.format(filterlength))
 
-        dom_size = ran.size
-        dom = ran.dspace_type(dom_size, dtype=ran.dtype)
+        dom = ran.dspace_type(ran.size, dtype=ran.dtype)
         super().__init__(dom, ran, linear=True)
 
     def _call(self, coeff):
@@ -1316,9 +1302,8 @@ class InverseBiorthWaveletTransform(Operator):
         filterlength = int(self.wbasis[9])
         if len(self.range.grid.shape) == 1:
             nx = self.range.grid.shape[0]
-            coeff_in = coeff.copy()
-            coeff_in = coeff_in.asarray()
-            x = np.asarray(self.range.element())
+            coeff_in = coeff.copy().asarray()
+            x = self.range.element().asarray()
             bwt.invwavelet_transform1D(coeff_in.ctypes.data, nx,
                                        filterlength,
                                        self.nscales, x.ctypes.data)
@@ -1326,9 +1311,8 @@ class InverseBiorthWaveletTransform(Operator):
 
         elif len(self.range.grid.shape) == 2:
             (nx, ny) = (self.range.grid.shape[0], self.range.grid.shape[1])
-            coeff_in = coeff.copy()
-            coeff_in = coeff_in.asarray()
-            x = np.asarray(self.range.element())
+            coeff_in = coeff.copy().asarray()
+            x = self.range.element().asarray()
             bwt.invwavelet_transform2D(coeff_in.ctypes.data, nx, ny,
                                        filterlength,
                                        self.nscales, x.ctypes.data)
@@ -1337,9 +1321,8 @@ class InverseBiorthWaveletTransform(Operator):
         elif len(self.range.grid.shape) == 3:
             (nx, ny, nz) = (self.range.grid.shape[0], self.range.grid.shape[1],
                             self.range.grid.shape[2])
-            coeff_in = coeff.copy()
-            coeff_in = coeff_in.asarray()
-            x = np.asarray(self.range.element())
+            coeff_in = coeff.copy().asarray()
+            x = self.range.element().asarray()
             bwt.invwavelet_transform3D(coeff_in.ctypes.data, nx, ny, nz,
                                        filterlength,
                                        self.nscales, x.ctypes.data)
@@ -1393,12 +1376,11 @@ class InverseAdjBiorthWaveletTransform(Operator):
             raise ValueError('domain Lp exponent is {} instead of 2.0.'
                              ''.format(dom.exponent))
 
-        ndim = dom.ndim
-        if ndim == 1:
+        if dom.ndim == 1:
             max_level = np.log2(dom.grid.shape[0])
-        elif ndim == 2:
+        elif dom.ndim == 2:
             max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1]))
-        elif ndim == 3:
+        elif dom.ndim == 3:
             max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
                                 dom.grid.shape[2]))
         else:
@@ -1416,8 +1398,7 @@ class InverseAdjBiorthWaveletTransform(Operator):
             raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
                                       ''.format(filterlength))
 
-        ran_size = dom.size
-        ran = dom.dspace_type(ran_size, dtype=dom.dtype)
+        ran = dom.dspace_type(dom.size, dtype=dom.dtype)
         super().__init__(dom, ran, linear=True)
 
     def _call(self, x):
@@ -1436,7 +1417,7 @@ class InverseAdjBiorthWaveletTransform(Operator):
         if x.space.ndim == 1:
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
-            coeff = np.asarray(self.range.element())
+            coeff = self.range.element().asarray()
             bwt.adjointinvwavelet_transform1D(x_cpy.ctypes.data,
                                               x_cpy.shape[0], filterlength,
                                               self.nscales, coeff.ctypes.data)
@@ -1445,7 +1426,7 @@ class InverseAdjBiorthWaveletTransform(Operator):
         elif x.space.ndim == 2:
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
-            coeff = np.asarray(self.range.element())
+            coeff = self.range.element().asarray()
             bwt.adjointinvwavelet_transform2D(x_cpy.ctypes.data,
                                               x_cpy.shape[0], x_cpy.shape[1],
                                               filterlength, self.nscales,
@@ -1455,7 +1436,7 @@ class InverseAdjBiorthWaveletTransform(Operator):
         elif x.space.ndim == 3:
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
-            coeff = np.asarray(self.range.element())
+            coeff = self.range.element().asarray()
             bwt.adjointinvwavelet_transform3D(x_cpy.ctypes.data,
                                               x_cpy.shape[0], x_cpy.shape[1],
                                               x_cpy.shape[2], filterlength,
