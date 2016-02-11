@@ -24,9 +24,10 @@ standard_library.install_aliases()
 # External module imports
 import pytest
 import numpy as np
-from odl.trafos.wavelet import PYWAVELETS_AVAILABLE
-if PYWAVELETS_AVAILABLE:
+try:
     import pywt
+except ImportError:
+    pass
 
 # ODL imports
 import odl
@@ -37,10 +38,10 @@ from odl.trafos.wavelet import (coeff_size_list, pywt_coeff_to_array,
                                 InverseAdjBiorthWaveletTransform)
 
 from odl.util.testutils import (all_almost_equal, all_equal,
-                                skip_if_no_pywavelets)
+                                skip_if_no_pywavelets, skip_if_no_joswavelets)
 
 # Simply modify exp_params to modify the fixture
-wavelet_params = ['db1', 'josbiorth1', 'josbiorth3', 'josbiorth5',
+wavelet_params = ['josbiorth1', 'josbiorth3', 'josbiorth5',
                   'josbiorth7', 'josbiorth9']
 wavelet_ids = [' wavelet = {} '.format(p) for p in wavelet_params]
 
@@ -175,21 +176,50 @@ def test_orhogonality_check():
     assert Wop.is_orthogonal
 
     wbasis = 'josbiorth3'
-    Wop = WaveletTransform(disc_domain, nscales, wbasis, mode)
+    Wop = WaveletTransform(disc_domain, nscales, wbasis)
     assert not Wop.is_orthogonal
 
 
-@skip_if_no_pywavelets
-def test_dwt1d(wbasis):
+@skip_if_no_joswavelets
+def test_bwt1d(wbasis):
     # Verify that the operator works as axpected
     # 1D test
     n = 16
     x = np.zeros(n)
     x[5:10] = 1
     nscales = 2
+
+    # Define a discretized domain
+    domain = odl.FunctionSpace(odl.Interval([-1], [1]))
+    nPoints = np.array([n])
+    disc_domain = odl.uniform_discr_fromspace(domain, nPoints)
+    disc_phantom = disc_domain.element(x)
+
+    # Create the discrete wavelet transform operator.
+    # Only the domain of the operator needs to be defined
+    Wop = WaveletTransform(disc_domain, nscales, wbasis)
+
+    # Compute the discrete wavelet transform of discrete imput image
+    coeffs = Wop(disc_phantom)
+
+    # Compute the inverse wavelet transform
+    reconstruction = Wop.inverse(coeffs)
+
+    # Verify that reconstructions lie in correct discretized domain
+    assert reconstruction in disc_domain
+    assert all_almost_equal(reconstruction.asarray(), x)
+
+
+@skip_if_no_pywavelets
+def test_dwt1d():
+    # Verify that the operator works as axpected
+    # 1D test
+    n = 16
+    x = np.zeros(n)
+    x[5:10] = 1
+    wbasis = pywt.Wavelet('db1')
+    nscales = 2
     mode = 'sym'
-    if not wbasis.startswith('jos'):
-        wbasis = pywt.Wavelet(wbasis)
 
     # Define a discretized domain
     domain = odl.FunctionSpace(odl.Interval([-1], [1]))
@@ -301,7 +331,7 @@ def test_dwt3d():
     assert all_almost_equal(reconstruction2, disc_phantom)
 
 
-@skip_if_no_pywavelets
+@skip_if_no_joswavelets
 def test_bwt2d():
     # 2D test
     n = 16
@@ -309,7 +339,6 @@ def test_bwt2d():
     x[5:10, 5:10] = 1
     wbasis = 'josbiorth5'
     nscales = 3
-    mode = 'sym'
 
     # Define a discretized domain
     domain = odl.FunctionSpace(odl.Rectangle([-1, -1], [1, 1]))
@@ -319,7 +348,7 @@ def test_bwt2d():
 
     # Create the discrete wavelet transform operator.
     # Only the domain of the operator needs to be defined
-    Wop = WaveletTransform(disc_domain, nscales, wbasis, mode)
+    Wop = WaveletTransform(disc_domain, nscales, wbasis)
     Bop = BiorthWaveletTransform(disc_domain, nscales, wbasis)
     Bop2 = InverseAdjBiorthWaveletTransform(disc_domain, nscales, wbasis)
 
@@ -341,7 +370,7 @@ def test_bwt2d():
     assert reconstruction3 in disc_domain
 
 
-@skip_if_no_pywavelets
+@skip_if_no_joswavelets
 def test_bwt3d():
     # 3D test
     n = 16
@@ -349,7 +378,6 @@ def test_bwt3d():
     x[5:10, 5:10, 5:10] = 1
     wbasis = 'josbiorth7'
     nscales = 1
-    mode = 'sym'
     # Define a discretized domain
     domain = odl.FunctionSpace(odl.Cuboid([-1, -1, -1], [1, 1, 1]))
     nPoints = np.array([n, n, n])
@@ -358,7 +386,7 @@ def test_bwt3d():
 
     # Create the discrete wavelet transform operator.
     # Only the domain of the operator needs to be defined
-    Wop = WaveletTransform(disc_domain, nscales, wbasis, mode)
+    Wop = WaveletTransform(disc_domain, nscales, wbasis)
     Bop = BiorthWaveletTransform(disc_domain, nscales, wbasis)
     Bop2 = InverseAdjBiorthWaveletTransform(disc_domain, nscales, wbasis)
 
