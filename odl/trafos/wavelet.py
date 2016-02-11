@@ -29,11 +29,13 @@ import numpy as np
 try:
     import pywt
     PYWAVELETS_AVAILABLE = True
-    import jos_wavelets as bwt
-#    JOSWAVELETS_AVAILABLE = True
 except ImportError:
     PYWAVELETS_AVAILABLE = False
-#    JOSWAVELETS_AVAILABLE = False
+try:
+    import jos_wavelets as bwt
+    JOSWAVELETS_AVAILABLE = True
+except:
+    JOSWAVELETS_AVAILABLE = False
 
 # Internal
 from odl.discr.lp_discr import DiscreteLp
@@ -873,7 +875,7 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
         else:
             max_level = int(np.ceil(np.log2(np.max(ran.shape))))
             dom_size = ran.size
-            filterlength = int(wbasis[9])
+            filterlength = int(wbasis[-1])
             if filterlength not in (1, 3, 5, 7, 9):
                 raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
                                           ''.format(filterlength))
@@ -1006,10 +1008,10 @@ class BiorthWaveletTransform(Operator):
                              'got {}.'.format(max_level, self.nscales))
             #raiseETC ('Setting {} to {}' .format(self.nscales, max_level))
 
-        filterlength = int(wbasis[9])
-        if filterlength not in (1, 3, 5, 7, 9):
+        self.filterlength = int(wbasis[-1])
+        if self.filterlength not in (1, 3, 5, 7, 9):
             raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
-                                      ''.format(filterlength))
+                                      ''.format(self.filterlength))
 
         ran = dom.dspace_type(dom.size, dtype=dom.dtype)
         super().__init__(dom, ran, linear=True)
@@ -1028,15 +1030,13 @@ class BiorthWaveletTransform(Operator):
             The length of the array depends on the size of input image to
             be transformed and on the chosen wavelet basis.
         """
-        filterlength = int(self.wbasis[9])
-
         if x.space.ndim == 1:
             #A copy of x is unavoidable since bwt writes over the given inputs
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
             coeff = self.range.element().asarray()
             bwt.wavelet_transform1D(x_cpy.ctypes.data, x_cpy.shape[0],
-                                    filterlength,
+                                    self.filterlength,
                                     self.nscales,
                                     coeff.ctypes.data)
             return coeff
@@ -1046,8 +1046,8 @@ class BiorthWaveletTransform(Operator):
             x_cpy = x_cpy.asarray()
             coeff = self.range.element().asarray()
             bwt.wavelet_transform2D(x_cpy.ctypes.data, x_cpy.shape[0],
-                                    x_cpy.shape[1], filterlength, self.nscales,
-                                    coeff.ctypes.data)
+                                    x_cpy.shape[1], self.filterlength,
+                                    self.nscales, coeff.ctypes.data)
             return self.range.element(coeff)
 
         elif x.space.ndim == 3:
@@ -1056,7 +1056,7 @@ class BiorthWaveletTransform(Operator):
             coeff = self.range.element().asarray()
             bwt.wavelet_transform3D(x_cpy.ctypes.data, x_cpy.shape[0],
                                     x_cpy.shape[1], x_cpy.shape[2],
-                                    filterlength, self.nscales,
+                                    self.filterlength, self.nscales,
                                     coeff.ctypes.data)
             return self.range.element(coeff)
 
@@ -1121,10 +1121,10 @@ class AdjBiorthWaveletTransform(Operator):
                              'got {}.'.format(max_level, self.nscales))
             #raiseETC ('Setting {} to {}' .format(self.nscales, max_level))
 
-        filterlength = int(wbasis[9])
-        if filterlength not in (1, 3, 5, 7, 9):
+        self.filterlength = int(wbasis[-1])
+        if self.filterlength not in (1, 3, 5, 7, 9):
             raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
-                                      ''.format(filterlength))
+                                      ''.format(self.filterlength))
 
         dom = ran.dspace_type(ran.size, dtype=ran.dtype)
         super().__init__(dom, ran, linear=True)
@@ -1140,7 +1140,6 @@ class AdjBiorthWaveletTransform(Operator):
         -------
         arr : `DiscreteLpVector`
         """
-        filterlength = int(self.wbasis[9])
         if len(self.range.grid.shape) == 1:
             nx = self.range.grid.shape[0]
             #A copy of coeff is unavoidable since bwt writes over
@@ -1148,7 +1147,7 @@ class AdjBiorthWaveletTransform(Operator):
             coeff_in = coeff.copy().asarray()
             x = self.range.element().asarray()
             bwt.adjointwavelet_transform1D(coeff_in.ctypes.data, nx,
-                                           filterlength,
+                                           self.filterlength,
                                            self.nscales, x.ctypes.data)
             return self.range.element(x)
 
@@ -1157,7 +1156,7 @@ class AdjBiorthWaveletTransform(Operator):
             coeff_in = coeff.copy().asarray()
             x = self.range.element().asarray()
             bwt.adjointwavelet_transform2D(coeff_in.ctypes.data, nx, ny,
-                                           filterlength,
+                                           self.filterlength,
                                            self.nscales, x.ctypes.data)
             return self.range.element(x)
 
@@ -1167,7 +1166,7 @@ class AdjBiorthWaveletTransform(Operator):
             coeff_in = coeff.copy().asarray()
             x = self.range.element().asarray()
             bwt.adjointwavelet_transform3D(coeff_in.ctypes.data, nx, ny, nz,
-                                           filterlength, self.nscales,
+                                           self.filterlength, self.nscales,
                                            x.ctypes.data)
             return self.range.element(x)
 
@@ -1227,10 +1226,10 @@ class InverseBiorthWaveletTransform(Operator):
             #raiseETC ('Setting {} to {}' .format(self.nscales, max_level))
             #nscales = max_level
 
-        filterlength = int(wbasis[9])
-        if filterlength not in (1, 3, 5, 7, 9):
+        self.filterlength = int(wbasis[-1])
+        if self.filterlength not in (1, 3, 5, 7, 9):
             raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
-                                      ''.format(filterlength))
+                                      ''.format(self.filterlength))
 
         dom = ran.dspace_type(ran.size, dtype=ran.dtype)
         super().__init__(dom, ran, linear=True)
@@ -1246,13 +1245,12 @@ class InverseBiorthWaveletTransform(Operator):
         -------
         arr : `DiscreteLpVector`
         """
-        filterlength = int(self.wbasis[9])
         if len(self.range.grid.shape) == 1:
             nx = self.range.grid.shape[0]
             coeff_in = coeff.copy().asarray()
             x = self.range.element().asarray()
             bwt.invwavelet_transform1D(coeff_in.ctypes.data, nx,
-                                       filterlength,
+                                       self.filterlength,
                                        self.nscales, x.ctypes.data)
             return self.range.element(x)
 
@@ -1261,7 +1259,7 @@ class InverseBiorthWaveletTransform(Operator):
             coeff_in = coeff.copy().asarray()
             x = self.range.element().asarray()
             bwt.invwavelet_transform2D(coeff_in.ctypes.data, nx, ny,
-                                       filterlength,
+                                       self.filterlength,
                                        self.nscales, x.ctypes.data)
             return self.range.element(x)
 
@@ -1271,7 +1269,7 @@ class InverseBiorthWaveletTransform(Operator):
             coeff_in = coeff.copy().asarray()
             x = self.range.element().asarray()
             bwt.invwavelet_transform3D(coeff_in.ctypes.data, nx, ny, nz,
-                                       filterlength,
+                                       self.filterlength,
                                        self.nscales, x.ctypes.data)
             return self.range.element(x)
 
@@ -1329,10 +1327,10 @@ class InverseAdjBiorthWaveletTransform(Operator):
                              'got {}.'.format(max_level, self.nscales))
             #raiseETC ('Setting {} to {}' .format(self.nscales, max_level))
 
-        filterlength = int(wbasis[9])
-        if filterlength not in (1, 3, 5, 7, 9):
+        self.filterlength = int(wbasis[-1])
+        if self.filterlength not in (1, 3, 5, 7, 9):
             raise NotImplementedError('Filterlength {} not 1, 3, 5, 7 or 9'
-                                      ''.format(filterlength))
+                                      ''.format(self.filterlength))
 
         ran = dom.dspace_type(dom.size, dtype=dom.dtype)
         super().__init__(dom, ran, linear=True)
@@ -1349,13 +1347,13 @@ class InverseAdjBiorthWaveletTransform(Operator):
         arr : `numpy.ndarray`
             Flattened and concatenated coefficient array
         """
-        filterlength = int(self.wbasis[9])
         if x.space.ndim == 1:
             x_cpy = x.copy()
             x_cpy = x_cpy.asarray()
             coeff = self.range.element().asarray()
             bwt.adjointinvwavelet_transform1D(x_cpy.ctypes.data,
-                                              x_cpy.shape[0], filterlength,
+                                              x_cpy.shape[0],
+                                              self.filterlength,
                                               self.nscales, coeff.ctypes.data)
             return self.range.element(coeff)
 
@@ -1365,7 +1363,7 @@ class InverseAdjBiorthWaveletTransform(Operator):
             coeff = self.range.element().asarray()
             bwt.adjointinvwavelet_transform2D(x_cpy.ctypes.data,
                                               x_cpy.shape[0], x_cpy.shape[1],
-                                              filterlength, self.nscales,
+                                              self.filterlength, self.nscales,
                                               coeff.ctypes.data)
             return self.range.element(coeff)
 
@@ -1375,7 +1373,8 @@ class InverseAdjBiorthWaveletTransform(Operator):
             coeff = self.range.element().asarray()
             bwt.adjointinvwavelet_transform3D(x_cpy.ctypes.data,
                                               x_cpy.shape[0], x_cpy.shape[1],
-                                              x_cpy.shape[2], filterlength,
+                                              x_cpy.shape[2],
+                                              self.filterlength,
                                               self.nscales, coeff.ctypes.data)
             return self.range.element(coeff)
 
