@@ -40,8 +40,8 @@ from odl.util.testutils import (all_almost_equal, all_equal,
                                 skip_if_no_pywavelets)
 
 # Simply modify exp_params to modify the fixture
-wavelet_params = ['db1', 'JOSbiorth1', 'JOSbiorth3', 'JOSbiorth5',
-                  'JOSbiorth7', 'JOSbiorth9']
+wavelet_params = ['db1', 'josbiorth1', 'josbiorth3', 'josbiorth5',
+                  'josbiorth7', 'josbiorth9']
 wavelet_ids = [' wavelet = {} '.format(p) for p in wavelet_params]
 
 
@@ -174,7 +174,7 @@ def test_orhogonality_check():
     Wop = WaveletTransform(disc_domain, nscales, wbasis, mode)
     assert Wop.is_orthogonal
 
-    wbasis = 'JOSbiorth3'
+    wbasis = 'josbiorth3'
     Wop = WaveletTransform(disc_domain, nscales, wbasis, mode)
     assert not Wop.is_orthogonal
 
@@ -188,7 +188,7 @@ def test_dwt1d(wbasis):
     x[5:10] = 1
     nscales = 2
     mode = 'sym'
-    if not wbasis.startswith('JOS'):
+    if not wbasis.startswith('jos'):
         wbasis = pywt.Wavelet(wbasis)
 
     # Define a discretized domain
@@ -299,51 +299,12 @@ def test_dwt3d():
     assert all_almost_equal(reconstruction2, disc_phantom)
 
 
-#def test_bwt1d():
-#    # Test Biorthogonal wavelets
-#    # 1D test
-#    n = 16
-#    x = np.zeros(n)
-#    x[5:10] = 1
-#    wbasis = 'JOSbiorth3'
-#    nscales = 2
-#    mode = 'sym'
-#
-#    # Define a discretized domain
-#    domain = odl.FunctionSpace(odl.Interval([-1], [1]))
-#    nPoints = np.array([n])
-#    disc_domain = odl.uniform_discr_fromspace(domain, nPoints)
-#    disc_phantom = disc_domain.element(x)
-#
-#    # Create the discrete wavelet transform operator.
-#    # Only the domain of the operator needs to be defined
-#    Wop = WaveletTransform(disc_domain, nscales, wbasis, mode)
-#    Bop = BiorthWaveletTransform(disc_domain, nscales, wbasis)
-#    Bop2 = InverseAdjBiorthWaveletTransform(disc_domain, nscales, wbasis)
-#
-#    # Compute the discrete wavelet transform of discrete input image
-#    coeffs = Wop(disc_phantom)
-#    coeffs2 = Bop(disc_phantom)
-#    coeffs3 = Bop2(disc_phantom)
-#
-#    reconstruction1 = Wop.inverse(coeffs)
-#    reconstruction2 = Bop.inverse(coeffs2)
-#    reconstruction3 = Bop2.inverse(coeffs3)
-#
-#    assert all_almost_equal(reconstruction1, x)
-#    assert all_almost_equal(reconstruction2, x)
-#    assert all_almost_equal(reconstruction3, x)
-#    assert all_almost_equal(coeffs, coeffs2)
-#    assert reconstruction1 in disc_domain
-#    assert reconstruction2 in disc_domain
-
-
 def test_bwt2d():
    # 2D test
     n = 16
     x = np.zeros((n, n))
     x[5:10, 5:10] = 1
-    wbasis = 'JOSbiorth5'
+    wbasis = 'josbiorth5'
     nscales = 3
     mode = 'sym'
 
@@ -382,7 +343,7 @@ def test_bwt3d():
     n = 16
     x = np.zeros((n, n, n))
     x[5:10, 5:10, 5:10] = 1
-    wbasis = 'JOSbiorth7'
+    wbasis = 'josbiorth7'
     nscales = 1
     mode = 'sym'
     # Define a discretized domain
