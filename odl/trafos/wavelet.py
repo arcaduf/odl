@@ -980,6 +980,19 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
 
 class BiorthWaveletTransform(Operator):
     """Discrete biorthogonal wavelet trafo between discrete L2 spaces.
+
+    This class implements biorthogonal wavelet transforms using
+    J.-O- Stromberg's biorthogonal wavelet library. J.-O- Stromberg's
+    biorthogonal wavelets have odd length filters, the available filter
+    lengths are 1, 3, 5, 7 and 9.
+
+    In J.-O. Strombergs wavelet library (and in what follows)
+    the following transforms have been implemented:
+
+    - biorthogonal wavelet transforms
+    - adjoint biorthogonal wavelet transforms
+    - inverse biorthogonal wavelet transforms
+    - adjoint inverse biorthogonal wavelet transforms
     """
 
     def __init__(self, dom, nscales, wbasis):
@@ -1096,7 +1109,21 @@ class BiorthWaveletTransform(Operator):
 
 
 class AdjBiorthWaveletTransform(Operator):
-    """Discrete adjoint of biorthogonal wavelet transform between L2 space."""
+    """Discrete adjoint of biorthogonal wavelet transform between L2 space.
+
+    This class implements adjoint biorthogonal wavelet transforms using
+    J.-O- Stromberg's biorthogonal wavelet library. J.-O- Stromberg's
+    biorthogonal wavelets have odd length filters, the available filter
+    lengths are 1, 3, 5, 7 and 9.
+
+    In J.-O. Strombergs wavelet library (and in what follows)
+    the following transforms have been implemented:
+
+    - biorthogonal wavelet transforms
+    - adjoint biorthogonal wavelet transforms
+    - inverse biorthogonal wavelet transforms
+    - adjoint inverse biorthogonal wavelet transforms
+    """
 
     def __init__(self, ran, nscales, wbasis):
         """Initialize a new instance.
@@ -1198,7 +1225,20 @@ class AdjBiorthWaveletTransform(Operator):
 
 
 class InverseBiorthWaveletTransform(Operator):
-    """
+    """Discrete inverse of biorthogonal wavelet transform between L2 space
+
+    This class implements inverse biorthogonal wavelet transforms using
+    J.-O- Stromberg's biorthogonal wavelet library. J.-O- Stromberg's
+    biorthogonal wavelets have odd length filters, the available filter
+    lengths are 1, 3, 5, 7 and 9.
+
+    In J.-O. Strombergs wavelet library (and in what follows)
+    the following transforms have been implemented:
+
+    - biorthogonal wavelet transforms
+    - adjoint biorthogonal wavelet transforms
+    - inverse biorthogonal wavelet transforms
+    - adjoint inverse biorthogonal wavelet transforms
     """
 
     def __init__(self, ran, nscales, wbasis):
@@ -1301,7 +1341,20 @@ class InverseBiorthWaveletTransform(Operator):
 
 
 class InverseAdjBiorthWaveletTransform(Operator):
-    """Discrete biorthogonal wavelet transfrom, inverse of adjoint
+    """Discrete biorthogonal wavelet transfrom, inverse of adjoint.
+
+    This class implements inverse adjoint biorthogonal wavelet transforms
+    using J.-O- Stromberg's biorthogonal wavelet library. J.-O- Stromberg's
+    biorthogonal wavelets have odd length filters, the available filter
+    lengths are 1, 3, 5, 7 and 9.
+
+    In J.-O. Strombergs wavelet library (and in what follows)
+    the following transforms have been implemented:
+
+    - biorthogonal wavelet transforms
+    - adjoint biorthogonal wavelet transforms
+    - inverse biorthogonal wavelet transforms
+    - adjoint inverse biorthogonal wavelet transforms
     """
     def __init__(self, dom, nscales, wbasis):
         """Initialize a new instance.
