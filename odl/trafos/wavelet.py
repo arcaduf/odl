@@ -647,9 +647,9 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
                 ran_size += sum(7 * np.prod(shape) for shape in
                                 self.size_list[1:-1])
             else:
-                raise NotImplementedError('ndim {} not 1, 2 or 3'
-                                          ''.format(len(dom.ndim)))
-
+                raise NotImplementedError('domain has {} dimensions, '
+                                          '1, 2 or 3 are supported '
+                                          ''.format((dom.ndim)))
         else:
             if dom.ndim == 1:
                 max_level = np.log2(dom.grid.shape[0])
@@ -659,8 +659,9 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
                 max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
                                         dom.grid.shape[2]))
             else:
-                raise NotImplementedError('ndim {} not 1, 2 or 3'
-                                          ''.format(len(dom.ndim)))
+                raise NotImplementedError('domain has {} dimensions, '
+                                          '1, 2 or 3 are supported '
+                                          ''.format((dom.ndim)))
             max_level = np.ceil(max_level)
             ran_size = dom.size
             filterlength = int(self.wbasis[-1])
@@ -876,8 +877,9 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
                 dom_size += sum(7 * np.prod(shape) for shape in
                                 self.size_list[1:-1])
             else:
-                raise NotImplementedError('ndim {} not 1, 2 or 3'
-                                          ''.format(ran.ndim))
+                raise NotImplementedError('domain has {} dimensions, '
+                                          '1, 2 or 3 are supported '
+                                          ''.format((ran.ndim)))
 
         else:
             if ran.ndim == 1:
@@ -888,8 +890,9 @@ dwt-discrete-wavelet-transform.html#maximum-decomposition-level\
                 max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
                                         ran.grid.shape[2]))
             else:
-                raise NotImplementedError('ndim {} not 1, 2 or 3'
-                                          ''.format(ran.ndim))
+                raise NotImplementedError('domain has {} dimensions, '
+                                          '1, 2 or 3 are supported '
+                                          ''.format((ran.ndim)))
             max_level = np.ceil(max_level)
             #Do we need this as a helper function?
             dom_size = ran.size
@@ -1027,8 +1030,9 @@ class BiorthWaveletTransform(Operator):
             max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
                                 dom.grid.shape[2]))
         else:
-            raise NotImplementedError('ndim {} not 1, 2 or 3'
-                                      ''.format(len(dom.ndim)))
+            raise NotImplementedError('domain has {} dimensions, '
+                                      '1, 2 or 3 are supported '
+                                      ''.format((dom.ndim)))
 
         max_level = np.ceil(max_level)
         if nscales > max_level:
@@ -1154,8 +1158,9 @@ class AdjBiorthWaveletTransform(Operator):
             max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
                                 ran.grid.shape[2]))
         else:
-            raise NotImplementedError('ndim {} not 1, 2 or 3'
-                                      ''.format(len(ran.ndim)))
+            raise NotImplementedError('domain has {} dimensions, '
+                                      '1, 2 or 3 are supported '
+                                      ''.format((ran.ndim)))
 
         max_level = np.ceil(max_level)
         if nscales > max_level:
@@ -1270,8 +1275,9 @@ class InverseBiorthWaveletTransform(Operator):
             max_level = np.log2(max(ran.grid.shape[0], ran.grid.shape[1],
                                 ran.grid.shape[2]))
         else:
-            raise NotImplementedError('ndim {} not 1, 2 or 3'
-                                      ''.format(len(ran.ndim)))
+            raise NotImplementedError('domain has {} dimensions, '
+                                      '1, 2 or 3 are supported '
+                                      ''.format((ran.ndim)))
 
         max_level = np.ceil(max_level)
         if nscales > max_level:
@@ -1384,8 +1390,9 @@ class InverseAdjBiorthWaveletTransform(Operator):
             max_level = np.log2(max(dom.grid.shape[0], dom.grid.shape[1],
                                 dom.grid.shape[2]))
         else:
-            raise NotImplementedError('ndim {} not 1, 2 or 3'
-                                      ''.format(len(dom.ndim)))
+            raise NotImplementedError('domain has {} dimensions, '
+                                      '1, 2 or 3 are supported '
+                                      ''.format((dom.ndim)))
 
         max_level = np.ceil(max_level)
         if nscales > max_level:
