@@ -601,6 +601,22 @@ class Operator(object):
                                     'for operator {!r}.'
                                     ''.format(self))
 
+    @property
+    def gradient(self):
+        """Return the operator gradient.
+
+        The gradient is a vector-valued operator such that
+
+        ``op.gradient(x).inner(y) = op.derivative(x)(y)``
+
+        Raises
+        ------
+        OpNotImplementedError
+            If the operator is not linear, the gradient cannot be
+            default implemented.
+        """
+        raise NotImplementedError
+
     def derivative(self, point):
         """Return the operator derivative at ``point``.
 
@@ -612,10 +628,15 @@ class Operator(object):
         """
         if self.is_linear:
             return self
-        else:
+
+        # Attempt fallback to gradient
+        gradient_method = getattr(self, 'gradient', None)
+        if gradient_method is None:
             raise OpNotImplementedError('derivative not implemented '
                                         'for operator {!r}.'
                                         ''.format(self))
+
+        return gradient_method(point).T
 
     @property
     def inverse(self):
@@ -1083,6 +1104,19 @@ class OperatorSum(Operator):
             self._op2(x, out=tmp)
             out += tmp
 
+    def gradient(self, x):
+        """Return the operator gradient at ``x``.
+
+        The gradient of a sum of two operators is equal to the sum of
+        the gradients.
+
+        Parameters
+        ----------
+        x : `Operator.domain` `element-like`
+            Evaluation point of the gradient
+        """
+        return OperatorSum(self._op1.gradient, self._op2.gradient)
+
     def derivative(self, x):
         """Return the operator derivative at ``x``.
 
@@ -1189,6 +1223,26 @@ class OperatorComp(Operator):
         """
         return OperatorComp(self._right.inverse, self._left.inverse, self._tmp)
 
+    def gradient(self, x):
+        """Return the operator gradient.
+
+        The gradient of the operator composition follows the chain
+        rule:
+
+        ``OperatorComp(left, right).derivative(x) ==
+        right.derivative(x).adjoint(left.gradient(right(x)))``
+
+        Parameters
+        ----------
+        x : `Operator.domain` `element-like`
+            Evaluation point of the gradient. Needs to be usable as
+            input for the ``right`` operator.
+        """
+        left_grad = self._left.gradient(self._right(x))
+        right_adj = self._right.derivative(x).adjoint
+
+        return right_adj(left_grad)
+
     def derivative(self, x):
         """Return the operator derivative.
 
@@ -1281,6 +1335,23 @@ class OperatorPointwiseProduct(Operator):
             self._op1(x, out=out)
             self._op2(x, out=tmp)
             out *= tmp
+
+    def gradient(self, x):
+        """Return the operator gradient.
+
+        The gradient of the operator product follows the product rule
+
+        ``OperatorPointwiseProduct(left, right).gradient(x) ==
+        left(right.gradient(x)) + right(left.gradient(x))``
+
+        Parameters
+        ----------
+        x : `Operator.domain` `element-like`
+            Evaluation point of the gradient. Needs to be usable as
+            input for the ``right`` operator.
+        """
+        left = self._op1(x, out=out)
+            self._op2(x, out=tmp)
 
     def __repr__(self):
         """Return ``repr(self)``."""
