@@ -32,7 +32,7 @@ import pytest
 import odl
 from odl.space.base_ntuples import _TYPE_MAP_R2C
 from odl.trafos.backends.pyfftw_bindings import pyfftw_call
-from odl.trafos.util.fourier_utils import (
+from odl.trafos.util.ft_utils import (
     reciprocal, inverse_reciprocal, dft_preprocess_data, dft_postprocess_data,
     _interp_kernel_ft)
 from odl.trafos.fourier import (
