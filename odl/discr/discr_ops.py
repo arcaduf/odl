@@ -370,6 +370,7 @@ class Convolution(Operator):
 
         Keyword arguments are passed on to the transform.
         """
+        # TODO: Calculate transform during init?
         if not self.use_transform:
             raise NotImplementedError('only transform-based convolution '
                                       'implemented.')
@@ -401,6 +402,7 @@ class Convolution(Operator):
     @property
     def adjoint(self):
         """Adjoint operator."""
+        # TODO: this can be expensive. Cache this operator?
         if self.kernel_transform is None:
             self._kernel_transform = self._ker_trafo()
 
