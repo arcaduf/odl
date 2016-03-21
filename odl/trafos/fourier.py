@@ -37,7 +37,7 @@ from odl.space.cu_ntuples import CudaNtuples
 from odl.space.ntuples import Ntuples
 from odl.trafos.backends.pyfftw_bindings import (
     pyfftw_call, PYFFTW_AVAILABLE, _pyfftw_to_local)
-from odl.trafos.util.fourier_utils import (
+from odl.trafos.util.ft_utils import (
     reciprocal, reciprocal_space, _shift_list,
     dft_preprocess_data, dft_postprocess_data)
 from odl.util.utility import (
@@ -1320,6 +1320,82 @@ class FourierTransformInverse(FourierTransform):
             dom=self.range, ran=self.domain, impl=self.impl, axes=self.axes,
             halfcomplex=self.halfcomplex, shift=self.shifts, sign=sign,
             tmp_r=self._tmp_r, tmp_f=self._tmp_f)
+
+
+class FractionalDiscreteFourierTransform(DiscreteFourierTransform):
+
+    """Version of the DFT with non-standard complex exponent.
+
+    The fractional Fourier transform evaluates the trigonometric sum::
+
+        f_hat[k] = sum_j( f[j] * exp(-+ 1j*2*pi * j*k * alpha) )
+
+    for some nonzero parameter ``alpha``. If ``alpha = 1/N``, this
+    reduces to the usual DFT. Otherwise, this transform is not
+    exactly invertible due to undersampling (``alpha > 1/N``) or
+    early truncation (``alpha < 1/N``).
+
+    The numerical scheme applied in the evaluation of this operator
+    is described in [BS1991]_.
+    """
+
+    def __init__(self, dom, alpha, ran=None, axes=None, impl='numpy',
+                 **kwargs):
+        """Initialize a new instance.
+
+        Parameters
+        ----------
+        dom : `DiscreteLp`
+            Domain of the Fourier transform. If its
+            `DiscreteLp.exponent` is equal to 2.0, this operator has
+            an adjoint which is equal to the inverse.
+        alpha : nonzero `float` or `sequence` of `float`
+            Parameter in the complex exponential of the transform.
+            If a sequence is given, it must have the same length as
+            ``axes`` if provided, otherwise length ``dom.ndim``.
+            A single float is interpreted as global value for all
+            axes.
+        ran : `DiscreteLp`, optional
+            Range of the Fourier transform. If not given, the range
+            is determined from ``dom`` and the other parameters as
+            a `discr_sequence_space` with exponent ``p / (p - 1)``
+            (read as 'inf' for p=1 and 1 for p='inf').
+        axes : sequence of `int`, optional
+            Dimensions in which a transform is to be calculated. `None`
+            means all axes.
+        impl : {'numpy', 'pyfftw'}
+            Backend for the FFT implementation. The 'pyfftw' backend
+            is faster but requires the ``pyfftw`` package.
+        """
+        super().__init__(dom, ran=ran, axes=axes, sign='-', halfcomplex=False,
+                         impl=impl)
+
+        try:
+            alpha = float(alpha)
+            if alpha == 0.0:
+                raise ValueError('alpha cannot be zero.')
+
+            self._alpha = [alpha] * self.domain.ndim
+        except TypeError:
+            self._alpha = tuple(float(a) for a in alpha)
+            if any(a == 0.0 for a in self._alpha):
+                raise ValueError('alpha sequence contains zeros.')
+
+    def init_z_arrays():
+        """Compute and store the ``z`` and ``z_hat`` arrays.
+
+        The arrays required in the computation of the transform are
+
+            z[k] =
+        """
+        if precomp_z is None:
+            precomp_z_ = []
+            for n, a in zip(shape, alpha):
+                # Initialize the precomputed z values. These are
+                # exp(1j * pi * alpha * j**2) for 0 <= j < len(x)
+                arr = np.exp(1j * np.pi * a * np.arange(n) ** 2)
+                precomp_z_.append(arr)
+            precomp_z = tuple(precomp_z_)
 
 
 if __name__ == '__main__':
