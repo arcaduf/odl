@@ -31,9 +31,11 @@ import pytest
 # ODL imports
 import odl
 from odl.space.base_ntuples import _TYPE_MAP_R2C
-from odl.trafos.fourier import (
+from odl.trafos.backends.pyfftw_bindings import pyfftw_call
+from odl.trafos.util.fourier_utils import (
     reciprocal, inverse_reciprocal, dft_preprocess_data, dft_postprocess_data,
-    pyfftw_call, _interp_kernel_ft,
+    _interp_kernel_ft)
+from odl.trafos.fourier import (
     DiscreteFourierTransform, DiscreteFourierTransformInverse,
     FourierTransform)
 from odl.util.testutils import all_almost_equal, all_equal, skip_if_no_pyfftw
