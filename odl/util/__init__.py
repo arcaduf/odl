@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with ODL.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Utility library for ODL, only for internal use."""
+"""Utility modules, mostly for internal use."""
 
 from __future__ import absolute_import
 

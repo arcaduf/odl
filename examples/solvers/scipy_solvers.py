@@ -21,7 +21,7 @@ This example solves the problem
 
     -Laplacian(x) = b
 
-where b is a gaussian peak at the origin.
+where b is a Gaussian peak at the origin.
 """
 
 # Imports for common Python 2/3 codebase
@@ -43,7 +43,7 @@ laplacian = -odl.Laplacian(space)
 rhs = space.element(lambda x: np.exp(-(x[0]**2 + x[1]**2) / 0.1**2))
 
 # Convert laplacian to scipy operator
-scipy_laplacian = odl.operator.oputils.as_scipy_operator(laplacian)
+scipy_laplacian = odl.util.as_scipy_operator(laplacian)
 
 # Convert to array and flatten
 rhs_arr = rhs.asarray().ravel(space.order)

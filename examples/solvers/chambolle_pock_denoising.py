@@ -95,7 +95,7 @@ op = odl.ProductSpaceOperator([[odl.IdentityOperator(discr_space)],
 x = op.domain.zero()
 
 # Operator norm
-prod_op_norm = 1.1 * odl.operator.oputils.power_method_opnorm(op, 100)
+prod_op_norm = 1.1 * odl.util.power_method_opnorm(op, 100)
 print('Norm of the product space operator: {}'.format(prod_op_norm))
 
 # Proximal operators related to the dual variable

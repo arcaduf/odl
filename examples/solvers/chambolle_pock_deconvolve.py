@@ -143,7 +143,7 @@ op = odl.ProductSpaceOperator([[convolution],
 x = op.domain.one()
 
 # Estimated operator norm, add 10 percent to ensure ||K||_2^2 * sigma * tau < 1
-op_norm = 1.1 * odl.operator.oputils.power_method_opnorm(op, 100)
+op_norm = 1.1 * odl.util.power_method_opnorm(op, 100)
 print('Norm of the product space operator: {}'.format(op_norm))
 
 # Create the proximal operator for unconstrained primal variable

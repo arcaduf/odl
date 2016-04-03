@@ -28,125 +28,114 @@ import numpy as np
 
 # ODL imports
 import odl
-from odl.operator.oputils import matrix_representation, power_method_opnorm
-from odl.space.pspace import ProductSpace
-from odl.operator.pspace_ops import ProductSpaceOperator
-
-from odl.space.ntuples import MatVecOperator
 from odl.util.testutils import almost_equal
 
 
 def test_matrix_representation():
-    # Verify that the matrix representation function returns the correct matrix
 
     n = 3
     A = np.random.rand(n, n)
 
-    Aop = MatVecOperator(A)
+    Aop = odl.MatVecOperator(A)
 
-    the_matrix = matrix_representation(Aop)
+    the_matrix = odl.operator.matrix_representation(Aop)
 
     assert almost_equal(np.sum(np.abs(A - the_matrix)), 1e-6)
 
 
 def test_matrix_representation_product_to_lin_space():
-    # Verify that the matrix representation function returns the correct matrix
 
     n = 3
     rn = odl.Rn(n)
     A = np.random.rand(n, n)
-    Aop = MatVecOperator(A)
+    Aop = odl.MatVecOperator(A)
 
     m = 2
     rm = odl.Rn(m)
     B = np.random.rand(n, m)
-    Bop = MatVecOperator(B)
+    Bop = odl.MatVecOperator(B)
 
-    dom = ProductSpace(rn, rm)
-    ran = ProductSpace(rn, 1)
+    dom = odl.ProductSpace(rn, rm)
+    ran = odl.ProductSpace(rn, 1)
 
     AB_matrix = np.hstack([A, B])
-    ABop = ProductSpaceOperator([Aop, Bop], dom, ran)
+    ABop = odl.ProductSpaceOperator([Aop, Bop], dom, ran)
 
-    the_matrix = matrix_representation(ABop)
+    the_matrix = odl.operator.matrix_representation(ABop)
 
     assert almost_equal(np.sum(np.abs(AB_matrix - the_matrix)), 1e-6)
 
 
 def test_matrix_representation_lin_space_to_product():
-    # Verify that the matrix representation function returns the correct matrix
 
     n = 3
     rn = odl.Rn(n)
     A = np.random.rand(n, n)
-    Aop = MatVecOperator(A)
+    Aop = odl.MatVecOperator(A)
 
     m = 2
     rm = odl.Rn(m)
     B = np.random.rand(m, n)
-    Bop = MatVecOperator(B)
+    Bop = odl.MatVecOperator(B)
 
-    dom = ProductSpace(rn, 1)
-    ran = ProductSpace(rn, rm)
+    dom = odl.ProductSpace(rn, 1)
+    ran = odl.ProductSpace(rn, rm)
 
     AB_matrix = np.vstack([A, B])
-    ABop = ProductSpaceOperator([[Aop], [Bop]], dom, ran)
+    ABop = odl.ProductSpaceOperator([[Aop], [Bop]], dom, ran)
 
-    the_matrix = matrix_representation(ABop)
+    the_matrix = odl.operator.matrix_representation(ABop)
 
     assert almost_equal(np.sum(np.abs(AB_matrix - the_matrix)), 1e-6)
 
 
 def test_matrix_representation_product_to_product():
-    # Verify that the matrix representation function returns the correct matrix
 
     n = 3
     rn = odl.Rn(n)
     A = np.random.rand(n, n)
-    Aop = MatVecOperator(A)
+    Aop = odl.MatVecOperator(A)
 
     m = 2
     rm = odl.Rn(m)
     B = np.random.rand(m, m)
-    Bop = MatVecOperator(B)
+    Bop = odl.MatVecOperator(B)
 
-    ran_and_dom = ProductSpace(rn, rm)
+    ran_and_dom = odl.ProductSpace(rn, rm)
 
     AB_matrix = np.vstack([np.hstack([A, np.zeros((n, m))]),
-                          np.hstack([np.zeros((m, n)), B])])
-    ABop = ProductSpaceOperator([[Aop, 0],
-                                 [0, Bop]],
-                                ran_and_dom, ran_and_dom)
-    the_matrix = matrix_representation(ABop)
+                           np.hstack([np.zeros((m, n)), B])])
+    ABop = odl.ProductSpaceOperator([[Aop, 0],
+                                     [0, Bop]],
+                                    ran_and_dom, ran_and_dom)
+    the_matrix = odl.operator.matrix_representation(ABop)
 
     assert almost_equal(np.sum(np.abs(AB_matrix - the_matrix)), 1e-6)
 
 
 def test_matrix_representation_product_to_product_two():
-    # Verify that the matrix representation function returns the correct matrix
 
     n = 3
     rn = odl.Rn(n)
     A = np.random.rand(n, n)
-    Aop = MatVecOperator(A)
+    Aop = odl.MatVecOperator(A)
 
     B = np.random.rand(n, n)
-    Bop = MatVecOperator(B)
+    Bop = odl.MatVecOperator(B)
 
-    ran_and_dom = ProductSpace(rn, 2)
+    ran_and_dom = odl.ProductSpace(rn, 2)
 
     AB_matrix = np.vstack([np.hstack([A, np.zeros((n, n))]),
                           np.hstack([np.zeros((n, n)), B])])
-    ABop = ProductSpaceOperator([[Aop, 0],
-                                 [0, Bop]],
-                                ran_and_dom, ran_and_dom)
-    the_matrix = matrix_representation(ABop)
+    ABop = odl.ProductSpaceOperator([[Aop, 0],
+                                     [0, Bop]],
+                                    ran_and_dom, ran_and_dom)
+    the_matrix = odl.operator.matrix_representation(ABop)
 
     assert almost_equal(np.sum(np.abs(AB_matrix - the_matrix)), 1e-6)
 
 
 def test_matrix_representation_not_linear_op():
-    # Verify that the matrix representation function gives correct error
     class small_nonlin_op(odl.Operator):
         """Small nonlinear test operator"""
         def __init__(self):
@@ -157,44 +146,37 @@ def test_matrix_representation_not_linear_op():
 
     nonlin_op = small_nonlin_op()
     with pytest.raises(ValueError):
-        matrix_representation(nonlin_op)
+        odl.operator.matrix_representation(nonlin_op)
 
 
 def test_matrix_representation_wrong_domain():
-    # Verify that the matrix representation function gives correct error
     class small_op(odl.Operator):
-        """Small nonlinear test operator"""
         def __init__(self):
-            super().__init__(domain=ProductSpace(odl.Rn(3),
-                                                 ProductSpace(odl.Rn(3),
-                                                              odl.Rn(3))),
-                             range=odl.Rn(4), linear=True)
+            dom = odl.ProductSpace(odl.Rn(3),
+                                   odl.ProductSpace(odl.Rn(3), odl.Rn(3)))
+            super().__init__(domain=dom, range=odl.Rn(4), linear=True)
 
         def _call(self, x, out):
             return odl.Rn(np.random.rand(4))
 
     nonlin_op = small_op()
     with pytest.raises(TypeError):
-        matrix_representation(nonlin_op)
+        odl.operator.matrix_representation(nonlin_op)
 
 
 def test_matrix_representation_wrong_range():
-    # Verify that the matrix representation function gives correct error
     class small_op(odl.Operator):
-        """Small nonlinear test operator"""
         def __init__(self):
-            super().__init__(domain=odl.Rn(3),
-                             range=ProductSpace(odl.Rn(3),
-                                                ProductSpace(odl.Rn(3),
-                                                             odl.Rn(3))),
-                             linear=True)
+            ran = odl.ProductSpace(odl.Rn(3),
+                                   odl.ProductSpace(odl.Rn(3), odl.Rn(3)))
+            super().__init__(domain=odl.Rn(3), range=ran, linear=True)
 
         def _call(self, x, out):
             return odl.Rn(np.random.rand(4))
 
     nonlin_op = small_op()
     with pytest.raises(TypeError):
-        matrix_representation(nonlin_op)
+        odl.operator.matrix_representation(nonlin_op)
 
 
 def test_power_method_opnorm_symm():
@@ -207,12 +189,12 @@ def test_power_method_opnorm_symm():
 
     op = odl.MatVecOperator(mat)
     true_opnorm = 2
-    opnorm_est = power_method_opnorm(op, niter=10)
+    opnorm_est = odl.operator.power_method_opnorm(op, niter=10)
     assert almost_equal(opnorm_est, true_opnorm, places=2)
 
     # Start at a different point
     xstart = odl.Rn(2).element([0.8, 0.5])
-    opnorm_est = power_method_opnorm(op, niter=10, xstart=xstart)
+    opnorm_est = odl.operator.power_method_opnorm(op, niter=10, xstart=xstart)
     assert almost_equal(opnorm_est, true_opnorm, places=2)
 
 
@@ -227,12 +209,12 @@ def test_power_method_opnorm_nonsymm():
     op = odl.MatVecOperator(mat)
     true_opnorm = 6
     # Start vector (1, 1) is close to the wrong eigenvector
-    opnorm_est = power_method_opnorm(op, niter=50)
+    opnorm_est = odl.operator.power_method_opnorm(op, niter=50)
     assert almost_equal(opnorm_est, true_opnorm, places=2)
 
     # Start close to the correct eigenvector, converges very fast
     xstart = odl.Rn(2).element([-0.8, 0.5])
-    opnorm_est = power_method_opnorm(op, niter=5, xstart=xstart)
+    opnorm_est = odl.operator.power_method_opnorm(op, niter=5, xstart=xstart)
     assert almost_equal(opnorm_est, true_opnorm, places=2)
 
 
