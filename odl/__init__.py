@@ -16,7 +16,7 @@
 # along with ODL.  If not, see <http://www.gnu.org/licenses/>.
 
 
-"""ODL is a functional analysis library with a focus on discretization.
+"""ODL is a functional analysis library with a focus on inverse problems.
 
 ODL suppors abstract sets, linear vector spaces defined on such
 and Operators/Functionals defined on these sets. It is intended
@@ -26,8 +26,8 @@ to be used to write general code and faciliate code reuse.
 from __future__ import absolute_import
 
 __version__ = '0.2.2'
-__all__ = ('diagnostics', 'discr', 'operator', 'set', 'space', 'solvers',
-           'tomo', 'trafos', 'util')
+__all__ = ('deform', 'diagnostics', 'discr', 'operator', 'set', 'space',
+           'solvers', 'tomo', 'trafos', 'util')
 
 
 # Propagate names defined in __all__ of all submodules into the top-level
@@ -50,6 +50,9 @@ __all__ += set.__all__
 from . import space
 from .space import *
 __all__ += space.__all__
+
+from .deform import *
+__all__ += deform.__all__
 
 from . import solvers
 from . import trafos
