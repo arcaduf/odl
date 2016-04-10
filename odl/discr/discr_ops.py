@@ -163,17 +163,21 @@ class Convolution(Operator):
     """Discretized convolution operator.
 
     The continuous convolution of two functions ``f`` and ``g`` on R is
-    defined as::
+    defined as
 
-        Conv(f, g)(x) = integrate_R ( f(x - y) * g(y) dy )
+        ``Conv(f, g)(x) = integrate_R ( f(x - y) * g(y) dy )``
 
     With the help of the Fourier transform, this operator can be written
-    as a multiplication::
+    as a multiplication
 
-        FT[Conv(f, g)] = sqrt(2 pi) FT(f) * FT(g)
+        ``FT[Conv(f, g)] = sqrt(2 pi) FT(f) * FT(g)``
 
-    If one of the functions is fixed, say ``g``, then the convolution is
-    a mapping from ``L^p(R)`` to itself (provided ``g in L^1(R)``.
+    This operator implements the case of one fixed argument, say ``g``.
+    In this case, the convolution is a linear operator from ``L^p(R)``
+    to itself (provided ``g in L^1(R)``), according to
+    `Young's inequality for convolutions
+    <https://en.wikipedia.org/wiki/Young's_inequality#\
+Young.27s_inequality_for_convolutions>`_.
     """
 
     def __init__(self, dom, ran=None, kernel=None, **kwargs):
@@ -181,43 +185,34 @@ class Convolution(Operator):
 
         Parameters
         ----------
-        dom : `DiscreteLp` or `ProductSpace` with 2 parts
-            Domain of the operator. If a `DiscreteLp` is given, a
-            ``kernel`` or ``kernel_ft`` must be specified.
+        dom : `DiscreteLp`
+            Domain of the operator
         ran : `DiscreteLp`, optional
-            Range of the operator, by default the same as ``dom`` or
-            ``dom[0]``, resp.
-        kernel : optional
-            Needs to be specified if ``dom`` is a `DiscreteLp` instance.
-            The kernel can be specified in a variety of ways:
+            Range of the operator, by default the same as ``dom``
+        kernel :
+            The kernel can be specified in several ways, depending on
+            the choice of ``impl``:
 
-            domain `element-like` : Any object that can be turned into
-            an element of ``dom``, i.e. a vectorized function, an
-            array of correct shape or a `DiscreteLpVector`
+            domain `element-like` : The object is interpreted as the
+            real-space kernel representation (mode ``'real'``).
+            Valid for ``impl``: ``'numpy_ft', 'pyfftw_ft',
+            'scipy_convolve', 'scipy_fftconvolve'``
 
             `element-like` for the range of `FourierTransform` defined
-            on ``dom`` : Like above, but the object is interpreted as
-            the Fourier transform of a real-space kernel. The correct
-            space can be calculated with `reciprocal_space`
+            on ``dom`` : The object is interpreted as the Fourier
+            transform of a real-space kernel (mode ``ft`` or ``'ft_hc'``).
+            The correct space can be calculated with `reciprocal_space`.
+            Valid for ``impl``: ``'numpy_ft', 'pyfftw_ft'``
 
-            `element-like` for the range of `DiscreteFourierTransform`
-             defined on ``dom`` : Like above, but the values are
-             interpreted as the result of the pure DFT instead. This
-             method is faster but assumes periodic functions.
+            `array-like`, arbitrary length : The object is interpreted as
+            real-space kernel (mode ``'real'``) and can be shorter than
+            the convolved function.
+            Valid for ``impl``: ``'scipy_convolve'``
 
-        impl : `str`, optional
-            Implementation of the convolution. Available options are:
-
-            'numpy_ft' : Fourier transform using Numpy FFT (default)
-
-            'numpy_dft' : Discrete FT using Numpy FFT
-
-            'pyfftw_ft' : Fourier transform using pyFFTW
-
-            'pyfftw_dft' : Discrete Fourier transform using pyFFTW
-
-        kernel_mode : {'real', 'ft', 'dft'}, optional
-            How the provided kernel is to be interpreted:
+        kernel_mode : {'real', 'ft', 'ft_hc'}, optional
+            How the provided kernel is to be interpreted. If not
+            provided, the kernel is tried to convert into an element
+            of ``dom`` or the Fourier transform range, in this order.
 
             'real' : element of ``dom`` (default)
 
@@ -226,17 +221,26 @@ class Convolution(Operator):
             'ft_hc' : function in the range of the half-complex
             (real-to-complex) Fourier transform
 
-            'dft' : discrete array in the range of the Discrete FT
+        impl : `str`, optional
+            Implementation of the convolution. Available options are:
 
-            'dft_hc' : discrete array in the range of the half-complex
-            (real-to-complex) Discrete FT
+            'default_ft' : Fourier transform using NumPy/SciPy FFT
+            (default)
+
+            'pyfftw_ft' : Fourier transform using pyFFTW
+
+            'scipy_convolve': Real-space convolution using
+            `scipy.signal.convolve` (fast for short kernels)
+
+            'scipy_fftconvolve': Fourier-space convolution using
+            `scipy.signal.fftconvolve`
 
         axes : sequence of `int`, optional
             Dimensions in which to convolve. Default: all axes
 
         cache_ker_ft : `bool`, optional
-            If `True`, the Fourier transform (or DFT) of the kernel is
-            stored during the first evaluation.
+            If `True`, the Fourier transform of the kernel is stored
+            during the first evaluation.
             Default: `False`
 
         See also
@@ -244,27 +248,20 @@ class Convolution(Operator):
         FourierTransform : discretization of the continuous FT
         DiscreteFourierTransform : "pure", trigonometric sum DFT
         """
-        # TODO: better factor out into an own class BilinearConvolution
-        if isinstance(dom, DiscreteLp):
-            dom_is_product = False
-        elif (isinstance(dom, ProductSpace) and
-              all(isinstance(s, DiscreteLp) for s in dom)):
-            dom_is_product = True
-        else:
-            raise TypeError('domain {!r} is neither a DiscreteLp instance '
-                            'nor a product space of such.'.format(dom))
+        if not isinstance(dom, DiscreteLp):
+            raise TypeError('domain {!r} is not a DiscreteLp instance.'
+                            ''.format(dom))
 
         if ran is not None:
             raise NotImplementedError('custom range not implemented')
         else:
-            ran = dom[0] if dom_is_product else dom
+            ran = dom
 
-        super().__init__(dom, ran, linear=not dom_is_product)
+        super().__init__(dom, ran, linear=True)
 
-        if not dom_is_product and kernel is None:
-            raise ValueError('kernel must be specified if the domain is not '
-                             'a product space.')
-
+        # TODO: factor out code checking for valid combination of kernel
+        # mode, impl and kernel
+        # TODO: handle scipy.[fft]convolve impl
         impl = kwargs.pop('impl', 'numpy_ft')
         impl, impl_in = str(impl).lower(), impl
         if impl not in _SUPPORTED_IMPL:
@@ -281,12 +278,8 @@ class Convolution(Operator):
         self._kernel_mode = ker_mode
 
         use_ft = (impl in ('numpy_ft', 'pyfftw_ft'))
-        # FIXME: DFT gives a wrapped result. Un-wrapping could be quite
-        # computationally heavy and defeat the speed benefit from using the
-        # pure DFT. In that case, it's better not to offer this option.
-        use_dft = (impl in ('numpy_dft', 'pyfftw_dft'))
 
-        if not (use_ft or use_dft) and ker_mode != 'real':
+        if not use_ft and ker_mode != 'real':
             raise ValueError("kernel mode 'real' is required for non-FT "
                              "based convolutions.")
 
@@ -303,11 +296,6 @@ class Convolution(Operator):
                 self.domain, axes=axes, halfcomplex=halfcomplex,
                 impl=fft_impl)
             self._factor = np.sqrt(2 * np.pi) ** self.domain.ndim
-        elif use_dft:
-            self._transform = DiscreteFourierTransform(
-                self.domain, axes=axes, halfcomplex=halfcomplex,
-                impl=fft_impl)
-            self._factor = 1.0
         else:
             self._transform = None
             self._factor = None
