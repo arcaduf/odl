@@ -23,11 +23,13 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import super
 
+import numpy as np
+import scipy.signal as signal
+
 from odl.discr.lp_discr import DiscreteLp
 from odl.operator.operator import Operator
-from odl.space.pspace import ProductSpace
 from odl.set.sets import ComplexNumbers
-from odl.trafos.fourier import FourierTransform, DiscreteFourierTransform
+from odl.trafos.fourier import FourierTransform
 
 
 __all__ = ('Resampling',)
@@ -154,8 +156,9 @@ class Resampling(Operator):
         return self.inverse
 
 
-_SUPPORTED_IMPL = ('numpy_ft', 'numpy_dft', 'pyfftw_ft', 'pyfftw_dft')
-_SUPPORTED_KER_MODES = ('real', 'ft', 'dft', 'ft_hc', 'dft_hc')
+_SUPPORTED_IMPL = ('default_ft', 'pyfftw_ft', 'scipy_convolve',
+                   'scipy_fftconvolve')
+_SUPPORTED_KER_MODES = ('real', 'ft', 'ft_hc')
 
 
 class Convolution(Operator):
@@ -180,7 +183,7 @@ class Convolution(Operator):
 Young.27s_inequality_for_convolutions>`_.
     """
 
-    def __init__(self, dom, ran=None, kernel=None, **kwargs):
+    def __init__(self, dom, kernel, ran=None, **kwargs):
         """Initialize a new instance.
 
         Parameters
@@ -202,12 +205,12 @@ Young.27s_inequality_for_convolutions>`_.
             on ``dom`` : The object is interpreted as the Fourier
             transform of a real-space kernel (mode ``ft`` or ``'ft_hc'``).
             The correct space can be calculated with `reciprocal_space`.
-            Valid for ``impl``: ``'numpy_ft', 'pyfftw_ft'``
+            Valid for ``impl``: ``'default_ft', 'pyfftw_ft'``
 
             `array-like`, arbitrary length : The object is interpreted as
             real-space kernel (mode ``'real'``) and can be shorter than
             the convolved function.
-            Valid for ``impl``: ``'scipy_convolve'``
+            Valid for ``impl``: ``'scipy_convolve', 'scipy_fftconvolve'``
 
         kernel_mode : {'real', 'ft', 'ft_hc'}, optional
             How the provided kernel is to be interpreted. If not
@@ -227,7 +230,8 @@ Young.27s_inequality_for_convolutions>`_.
             'default_ft' : Fourier transform using NumPy/SciPy FFT
             (default)
 
-            'pyfftw_ft' : Fourier transform using pyFFTW
+            'pyfftw_ft' : Fourier transform using pyFFTW (faster than
+            the default FT)
 
             'scipy_convolve': Real-space convolution using
             `scipy.signal.convolve` (fast for short kernels)
@@ -238,31 +242,38 @@ Young.27s_inequality_for_convolutions>`_.
         axes : sequence of `int`, optional
             Dimensions in which to convolve. Default: all axes
 
-        cache_ker_ft : `bool`, optional
-            If `True`, the Fourier transform of the kernel is stored
-            during the first evaluation.
-            Default: `False`
+        kwargs :
+            Extra arguments are passed to the transform when the
+            kernel FT is calculated.
 
         See also
         --------
         FourierTransform : discretization of the continuous FT
-        DiscreteFourierTransform : "pure", trigonometric sum DFT
+        scipy.signal.convolve : real-space convolution
+        scipy.signal.fftconvolve : Fourier-space convolution
+
+        Notes
+        -----
+        For Fourier-based convolutions, only the Fourier transform
+        of the kernel is stored. The real-space kernel can be retrieved
+        with ``conv.transform.inverse(conv.kernel_ft)`` if ``conv``
+        is the convolution operator.
         """
+        # Basic checks
         if not isinstance(dom, DiscreteLp):
             raise TypeError('domain {!r} is not a DiscreteLp instance.'
                             ''.format(dom))
 
         if ran is not None:
+            # TODO
             raise NotImplementedError('custom range not implemented')
         else:
             ran = dom
 
         super().__init__(dom, ran, linear=True)
 
-        # TODO: factor out code checking for valid combination of kernel
-        # mode, impl and kernel
-        # TODO: handle scipy.[fft]convolve impl
-        impl = kwargs.pop('impl', 'numpy_ft')
+        # Handle kernel mode and impl
+        impl = kwargs.pop('impl', 'default_ft')
         impl, impl_in = str(impl).lower(), impl
         if impl not in _SUPPORTED_IMPL:
             raise ValueError("implementation '{}' not understood."
@@ -277,37 +288,60 @@ Young.27s_inequality_for_convolutions>`_.
 
         self._kernel_mode = ker_mode
 
-        use_ft = (impl in ('numpy_ft', 'pyfftw_ft'))
+        use_own_ft = (self.impl in ('default_ft', 'pyfftw_ft'))
+        if not use_own_ft and self.kernel_mode != 'real':
+            raise ValueError("kernel mode 'real' is required for impl "
+                             "{}.".format(impl_in))
 
-        if not use_ft and ker_mode != 'real':
-            raise ValueError("kernel mode 'real' is required for non-FT "
-                             "based convolutions.")
-
-        axes = kwargs.pop('axes', list(range(self.domain.ndim)))
+        self._axes = list(kwargs.pop('axes', (range(self.domain.ndim))))
         if ker_mode == 'real':
-            halfcomplex = True  # use default depending on domain
+            halfcomplex = True  # efficient
         else:
             halfcomplex = ker_mode.endswith('hc')
 
-        fft_impl = self.impl.split('_')[0]
-
-        if use_ft:
+        if use_own_ft:
+            fft_impl = self.impl.split('_')[0]
             self._transform = FourierTransform(
-                self.domain, axes=axes, halfcomplex=halfcomplex,
+                self.domain, axes=self.axes, halfcomplex=halfcomplex,
                 impl=fft_impl)
-            self._factor = np.sqrt(2 * np.pi) ** self.domain.ndim
         else:
             self._transform = None
-            self._factor = None
 
         if ker_mode == 'real':
-            self._kernel = self.domain.element(kernel)
-            self._kernel_transform = None
+            # Kernel given as real space element
+            if use_own_ft:
+                self._kernel = None
+                self._kernel_transform = self.transform(kernel, **kwargs)
+                self._kernel_transform *= (np.sqrt(2 * np.pi) **
+                                           self.domain.ndim)
+            else:
+                self._kernel = self._kernel_array(kernel, self.axes)
+                self._kernel_transform = None
         else:
+            # Kernel given as Fourier space element
             self._kernel = None
             self._kernel_transform = self.transform.range.element(kernel)
+            self._kernel_transform *= np.sqrt(2 * np.pi) ** self.domain.ndim
 
-        self._cache_ker_ft = bool(kwargs.pop('cache_ker_ft', False))
+    def _kernel_array(self, kernel, axes):
+        """Return kernel with adapted shape for real space convolution."""
+        kernel = np.asarray(kernel)
+        extra_dims = self.domain.ndim - kernel.ndim
+
+        if extra_dims == 0:
+            return kernel
+        else:
+            if len(axes) != extra_dims:
+                raise ValueError('kernel dim ({}) + number of axes ({}) '
+                                 'does not add up to the space dimension '
+                                 '({}).'.format(kernel.ndim, len(axes),
+                                                self.domain.ndim))
+
+            # Sparse kernel (less dimensions), blow up
+            slc = [None] * self.domain.ndim
+            for ax in axes:
+                slc[ax] = slice(None)
+            return kernel[slc]
 
     @property
     def impl(self):
@@ -327,30 +361,16 @@ Young.27s_inequality_for_convolutions>`_.
     @property
     def axes(self):
         """Axes along which the convolution is taken."""
-        if not self.use_transform:
-            # TODO: store if no transform used
-            return None
-        else:
-            return self.transform.axes
-
-    @property
-    def use_transform(self):
-        """Return `True` if an FT or DFT is used, otherwise `False`."""
-        return self.transform is not None
+        return self._axes
 
     @property
     def kernel(self):
-        """Real-space kernel of this transform if used, else `None`."""
+        """Real-space kernel if used, else `None`."""
         return self._kernel
 
     @property
     def kernel_transform(self):
-        """Fourier-space kernel of this transform.
-
-        It is either given as a parameter in the initialization or
-        calculated during the first evaluation if caching was enabled.
-        Otherwise, `None` is returned.
-        """
+        """Fourier-space kernel if used, else `None`."""
         return self._kernel_transform
 
     def _call(self, x, out, **kwargs):
@@ -358,53 +378,71 @@ Young.27s_inequality_for_convolutions>`_.
 
         Keyword arguments are passed on to the transform.
         """
-        # TODO: Calculate transform during init?
-        if not self.use_transform:
-            raise NotImplementedError('only transform-based convolution '
-                                      'implemented.')
+        if self.kernel is not None:
+            # Scipy based convolution
+            conv_func = getattr(signal, self.impl.split('_')[1])
+            out[:] = conv_func(x, self.kernel, mode='same')
+        elif self.kernel_transform is not None:
+            # Convolution based on our own transforms
+            if self.domain.field == ComplexNumbers():
+                # Use out as a temporary, has the same size
+                # TODO: won't work for CUDA
+                tmp = self.transform.range.element(out.asarray())
+            else:
+                # No temporary since out has reduced size (halfcomplex)
+                tmp = None
 
-        if self.domain.field == ComplexNumbers():
-            # Use out as a temporary
-            tmp = self.transform.range.element(out.asarray())
+            x_trafo = self.transform(x, out=tmp, **kwargs)
+            x_trafo *= self.kernel_transform
+
+            self.transform.inverse(x_trafo, out=out, **kwargs)
         else:
-            tmp = None
+            raise RuntimeError('both kernel and kernel_transform are None.')
 
-        x_trafo = self.transform(x, out=tmp, **kwargs)
-        if self.kernel_transform is None:
-            self._kernel_transform = self._ker_trafo()
+    def _adj_kernel_array(self, kernel, axes):
+        """Return adjoint kernel with adapted shape."""
+        kernel = np.asarray(kernel).conj()
+        extra_dims = self.domain.ndim - kernel.ndim
 
-        x_trafo *= self.kernel_transform
-        if self._factor != 1.0:
-            x_trafo *= self._factor
+        if extra_dims == 0:
+            slc = [slice(None, None, -1)] * self.domain.ndim
+            return kernel[slc]
+        else:
+            if len(axes) != extra_dims:
+                raise ValueError('kernel dim ({}) + number of axes ({}) '
+                                 'does not add up to the space dimension '
+                                 '({}).'.format(kernel.ndim, len(axes),
+                                                self.domain.ndim))
 
-        self.transform.inverse(x_trafo, out=out, **kwargs)
-
-    def _ker_trafo(self, **kwargs):
-        """Helper for the calculation of the kernel transform."""
-        if self.kernel is None:
-            raise RuntimeError('invalid state: both kernel and '
-                               'kernel_transform are None.')
-
-        return self.transform(self.kernel, **kwargs)
+            # Sparse kernel (less dimensions), blow up
+            slc = [None] * self.domain.ndim
+            for ax in axes:
+                slc[ax] = slice(None, None, -1)
+            return kernel[slc]
 
     @property
     def adjoint(self):
         """Adjoint operator."""
-        # TODO: this can be expensive. Cache this operator?
-        if self.kernel_transform is None:
-            self._kernel_transform = self._ker_trafo()
+        if self.kernel is not None:
+            # TODO: this could be expensive. Move to init?
+            adj_kernel = self._adj_kernel_array(self.kernel, self.axes)
+            return Convolution(dom=self.domain,
+                               kernel=adj_kernel, kernel_mode='real',
+                               impl=self.impl, axes=self.axes)
 
-        # TODO: add conj to DiscreteLpVector
-        adj_kernel_ft = self.transform.range.element(
-            self.kernel_transform.asarray().conj())
+        elif self.kernel_transform is not None:
+            # TODO: this could be expensive. Move to init?
+            adj_kernel_ft = self.kernel_transform.conj()
 
-        if self.transform.halfcomplex:
-            kernel_mode = 'ft_hc'
+            if self.transform.halfcomplex:
+                kernel_mode = 'ft_hc'
+            else:
+                kernel_mode = 'ft'
+            return Convolution(dom=self.domain,
+                               kernel=adj_kernel_ft, kernel_mode=kernel_mode,
+                               impl=self.impl, axes=self.axes)
         else:
-            kernel_mode = 'ft'
-        return Convolution(dom=self.domain,
-                           kernel=adj_kernel_ft, kernel_mode=kernel_mode,
-                           impl=self.impl, axes=self.axes)
+            raise RuntimeError('both kernel and kernel_transform are None.')
 
 
 if __name__ == '__main__':
