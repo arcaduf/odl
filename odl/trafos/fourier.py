@@ -549,7 +549,7 @@ class DiscreteFourierTransform(Operator):
     """
 
     def __init__(self, dom, ran=None, axes=None, sign='-', halfcomplex=False,
-                 impl='numpy'):
+                 impl='default'):
         """Initialize a new instance.
 
         Parameters
@@ -576,9 +576,10 @@ class DiscreteFourierTransform(Operator):
             arrays.
             Otherwise, calculate the full complex FFT. If ``dom_dtype``
             is a complex type, this option has no effect.
-        impl : {'numpy', 'pyfftw'}
-            Backend for the FFT implementation. The 'pyfftw' backend
-            is faster but requires the ``pyfftw`` package.
+        impl : {'default', 'pyfftw'}
+            Backend for the FFT implementation. The 'default' backend
+            uses the NumPy FFT. The 'pyfftw' backend is faster but
+            requires the ``pyfftw`` package.
 
         Examples
         --------
@@ -613,7 +614,7 @@ class DiscreteFourierTransform(Operator):
 
         # Implementation
         self._impl = str(impl).lower()
-        if self.impl not in ('numpy', 'pyfftw'):
+        if self.impl not in ('default', 'pyfftw'):
             raise ValueError("implementation '{}' not understood."
                              "".format(impl))
         if self.impl == 'pyfftw' and not PYFFTW_AVAILABLE:
@@ -687,13 +688,13 @@ class DiscreteFourierTransform(Operator):
         pyfftw_call : Call pyfftw backend directly
         """
         # TODO: Implement zero padding
-        if self.impl == 'numpy':
-            out[:] = self._call_numpy(x.asarray())
+        if self.impl == 'default':
+            out[:] = self._call_default(x.asarray())
         else:
             out[:] = self._call_pyfftw(x.asarray(), out.asarray(), **kwargs)
 
-    def _call_numpy(self, x):
-        """Return ``self(x)`` using numpy.
+    def _call_default(self, x):
+        """Return ``self(x)`` using the default backend.
 
         Parameters
         ----------
@@ -913,7 +914,7 @@ class DiscreteFourierTransformInverse(DiscreteFourierTransform):
        http://www.fftw.org/fftw3_doc/What-FFTW-Really-Computes.html
     """
     def __init__(self, ran, dom=None, axes=None, sign='+', halfcomplex=False,
-                 impl='numpy'):
+                 impl='default'):
         """Initialize a new instance.
 
         Parameters
@@ -940,7 +941,7 @@ class DiscreteFourierTransformInverse(DiscreteFourierTransform):
             ``floor(N[i]/2) + 1`` in this axis ``i``.
             Otherwise, domain and range have the same shape. If
             ``ran`` is a complex space, this option has no effect.
-        impl : {'numpy', 'pyfftw'}
+        impl : {'default', 'pyfftw'}
             Backend for the FFT implementation. The 'pyfftw' backend
             is faster but requires the ``pyfftw`` package.
 
@@ -979,8 +980,8 @@ class DiscreteFourierTransformInverse(DiscreteFourierTransform):
         self._domain, self._range = self._range, self._domain
         self._sign = bwd_sign
 
-    def _call_numpy(self, x):
-        """Return ``self(x)`` using numpy.
+    def _call_default(self, x):
+        """Return ``self(x)`` using the default backend.
 
         Parameters
         ----------
@@ -1483,7 +1484,7 @@ class FourierTransform(Operator):
     dft_postprocess_data
     """
 
-    def __init__(self, dom, ran=None, impl='numpy', **kwargs):
+    def __init__(self, dom, ran=None, impl='default', **kwargs):
         """Initialize a new instance.
 
         Parameters
@@ -1498,7 +1499,7 @@ class FourierTransform(Operator):
             is determined from ``dom`` and the other parameters. The
             exponent is chosen to be the conjugate ``p / (p - 1)``,
             which reads as 'inf' for p=1 and 1 for p='inf'.
-        impl : {'numpy', 'pyfftw'}
+        impl : {'default', 'pyfftw'}
             Backend for the FFT implementation. The 'pyfftw' backend
             is faster but requires the ``pyfftw`` package.
         axes : sequence of `int`, optional
@@ -1572,7 +1573,7 @@ class FourierTransform(Operator):
         self._axes = list(kwargs.pop('axes', range(dom.ndim)))
 
         self._impl = str(impl).lower()
-        if self.impl not in ('numpy', 'pyfftw'):
+        if self.impl not in ('default', 'pyfftw'):
             raise ValueError("implementation '{}' not understood."
                              "".format(impl))
         if self.impl == 'pyfftw' and not PYFFTW_AVAILABLE:
@@ -1647,8 +1648,8 @@ class FourierTransform(Operator):
         pyfftw_call : Call pyfftw backend directly
         """
         # TODO: Implement zero padding
-        if self.impl == 'numpy':
-            out[:] = self._call_numpy(x.asarray())
+        if self.impl == 'default':
+            out[:] = self._call_default(x.asarray())
         else:
             # 0-overhead assignment if asarray() does not copy
             out[:] = self._call_pyfftw(x.asarray(), out.asarray(), **kwargs)
@@ -1694,8 +1695,8 @@ class FourierTransform(Operator):
             shifts=self.shifts, axes=self.axes, sign=self.sign,
             interp=self.domain.interp, op='multiply', out=out)
 
-    def _call_numpy(self, x):
-        """Return ``self(x)`` for numpy back-end.
+    def _call_default(self, x):
+        """Return ``self(x)`` for the default back-end.
 
         Parameters
         ----------
@@ -1994,7 +1995,7 @@ class FourierTransformInverse(FourierTransform):
     DiscreteFourierTransformInverse
     """
 
-    def __init__(self, ran, dom=None, impl='numpy', **kwargs):
+    def __init__(self, ran, dom=None, impl='default', **kwargs):
         """
         Parameters
         ----------
@@ -2008,7 +2009,7 @@ class FourierTransformInverse(FourierTransform):
             domain is determined from ``ran`` and the other parameters.
             The exponent is chosen to be the conjugate ``p / (p - 1)``,
             which reads as 'inf' for p=1 and 1 for p='inf'.
-        impl : {'numpy', 'pyfftw'}
+        impl : {'default', 'pyfftw'}
             Backend for the FFT implementation. The 'pyfftw' backend
             is faster but requires the ``pyfftw`` package.
         axes : sequence of `int`, optional
@@ -2129,8 +2130,8 @@ class FourierTransformInverse(FourierTransform):
         return dft_preprocess_data(
             x, shift=self.shifts, axes=self.axes, sign=self.sign, out=out)
 
-    def _call_numpy(self, x):
-        """Return ``self(x)`` for numpy back-end.
+    def _call_default(self, x):
+        """Return ``self(x)`` for the default back-end.
 
         Parameters
         ----------
