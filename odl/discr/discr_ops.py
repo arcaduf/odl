@@ -26,8 +26,10 @@ from builtins import super
 import numpy as np
 import scipy.signal as signal
 
-from odl.discr.lp_discr import DiscreteLp
+from odl.discr.lp_discr import DiscreteLp, uniform_discr
 from odl.operator.operator import Operator
+from odl.space.ntuples import Ntuples
+from odl.space.cu_ntuples import CudaNtuples
 from odl.set.sets import ComplexNumbers
 from odl.trafos.fourier import FourierTransform
 
@@ -242,7 +244,15 @@ Young.27s_inequality_for_convolutions>`_.
         axes : sequence of `int`, optional
             Dimensions in which to convolve. Default: all axes
 
-        kwargs :
+        scale : `bool`, optional
+            If `True`, scale the discrete convolution such that it
+            corresponds to a continuous convolution. The scaling
+            factor is ``2*pi ** (ndim/2)`` for FT-based convolutions
+            and the partition cell volume for the SciPy
+            implementations.
+            Default: `True`
+
+        kwargs : optional
             Extra arguments are passed to the transform when the
             kernel FT is calculated.
 
@@ -307,41 +317,79 @@ Young.27s_inequality_for_convolutions>`_.
         else:
             self._transform = None
 
+        scale = kwargs.pop('scale', True)
+
         if ker_mode == 'real':
             # Kernel given as real space element
             if use_own_ft:
                 self._kernel = None
                 self._kernel_transform = self.transform(kernel, **kwargs)
-                self._kernel_transform *= (np.sqrt(2 * np.pi) **
-                                           self.domain.ndim)
+                if scale:
+                    self._kernel_transform *= (np.sqrt(2 * np.pi) **
+                                               self.domain.ndim)
             else:
-                self._kernel = self._kernel_array(kernel, self.axes)
-                self._kernel_transform = None
+                if not self.domain.partition.is_regular:
+                    raise NotImplementedError(
+                        'real-space convolution not implemented for '
+                        'irregular sampling.')
+                try:
+                    # Function or other element-like as input. All axes
+                    # must be used, otherwise we get an error.
+                    # TODO: make a zero-centered space by default and
+                    # adapt the range otherwise
+                    self._kernel = self._kernel_elem(
+                        self.domain.element(kernel).asarray(), self.axes)
+                except (TypeError, ValueError):
+                    # Got an array-like, axes can be used
+                    self._kernel = self._kernel_elem(kernel, self.axes)
+                finally:
+                    self._kernel_transform = None
+                    if scale:
+                        self._kernel *= self.domain.cell_volume
         else:
             # Kernel given as Fourier space element
             self._kernel = None
             self._kernel_transform = self.transform.range.element(kernel)
-            self._kernel_transform *= np.sqrt(2 * np.pi) ** self.domain.ndim
+            if scale:
+                self._kernel_transform *= (np.sqrt(2 * np.pi) **
+                                           self.domain.ndim)
 
-    def _kernel_array(self, kernel, axes):
+    def _kernel_elem(self, kernel, axes):
         """Return kernel with adapted shape for real space convolution."""
         kernel = np.asarray(kernel)
         extra_dims = self.domain.ndim - kernel.ndim
 
         if extra_dims == 0:
-            return kernel
+            return self.domain.element(kernel)
         else:
             if len(axes) != extra_dims:
-                raise ValueError('kernel dim ({}) + number of axes ({}) '
-                                 'does not add up to the space dimension '
-                                 '({}).'.format(kernel.ndim, len(axes),
-                                                self.domain.ndim))
+                raise ValueError('kernel dim {} + number of axes {} '
+                                 '!= space dimension {}.'
+                                 ''.format(kernel.ndim, len(axes),
+                                           self.domain.ndim))
 
             # Sparse kernel (less dimensions), blow up
             slc = [None] * self.domain.ndim
             for ax in axes:
                 slc[ax] = slice(None)
-            return kernel[slc]
+
+            kernel = kernel[slc]
+            # Assuming uniform discretization
+            min_corner = -self.domain.cell_sides * self.domain.shape / 2
+            max_corner = self.domain.cell_sides * self.domain.shape / 2
+            if isinstance(self.domain.dspace, Ntuples):
+                impl = 'numpy'
+            elif isinstance(self.domain.dspace, CudaNtuples):
+                impl = 'cuda'
+            else:
+                raise RuntimeError
+
+            space = uniform_discr(min_corner, max_corner, kernel.shape,
+                                  self.domain.exponent, self.domain.interp,
+                                  impl, dtype=self.domain.dspace.dtype,
+                                  order=self.domain.order,
+                                  weighting=self.domain.weighting)
+            return space.element(kernel)
 
     @property
     def impl(self):
@@ -365,12 +413,28 @@ Young.27s_inequality_for_convolutions>`_.
 
     @property
     def kernel(self):
-        """Real-space kernel if used, else `None`."""
+        """Real-space kernel if used, else `None`.
+
+        Note that this is the scaled version ``kernel * cell_volume``
+        if ``scale=True`` was specified. Scaling here is more efficient
+        than scaling the result.
+        """
         return self._kernel
 
     @property
+    def kernel_space(self):
+        """Space of the convolution kernel."""
+        return getattr(self.kernel, 'space', None)
+
+    @property
     def kernel_transform(self):
-        """Fourier-space kernel if used, else `None`."""
+        """Fourier-space kernel if used, else `None`.
+
+        Note that this is the scaled version
+        ``kernel_ft * (2*pi) ** (ndim/2)`` of the FT of the input
+        kernel if ``scale=True`` was specified. Scaling here is more
+        efficient than scaling the result.
+        """
         return self._kernel_transform
 
     def _call(self, x, out, **kwargs):
@@ -399,7 +463,7 @@ Young.27s_inequality_for_convolutions>`_.
         else:
             raise RuntimeError('both kernel and kernel_transform are None.')
 
-    def _adj_kernel_array(self, kernel, axes):
+    def _adj_kernel(self, kernel, axes):
         """Return adjoint kernel with adapted shape."""
         kernel = np.asarray(kernel).conj()
         extra_dims = self.domain.ndim - kernel.ndim
@@ -425,7 +489,7 @@ Young.27s_inequality_for_convolutions>`_.
         """Adjoint operator."""
         if self.kernel is not None:
             # TODO: this could be expensive. Move to init?
-            adj_kernel = self._adj_kernel_array(self.kernel, self.axes)
+            adj_kernel = self._adj_kernel(self.kernel, self.axes)
             return Convolution(dom=self.domain,
                                kernel=adj_kernel, kernel_mode='real',
                                impl=self.impl, axes=self.axes)
