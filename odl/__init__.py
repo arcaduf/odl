@@ -49,9 +49,6 @@ from . import space
 from .space import *
 __all__ += space.__all__
 
-from .deform import *
-__all__ += deform.__all__
-
 from . import solvers
 from . import trafos
 from . import tomo
