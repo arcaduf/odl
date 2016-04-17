@@ -34,7 +34,7 @@ from odl.set.sets import ComplexNumbers
 from odl.trafos.fourier import FourierTransform
 
 
-__all__ = ('Resampling',)
+__all__ = ('Resampling', 'Convolution')
 
 
 class Resampling(Operator):
@@ -338,14 +338,15 @@ Young.27s_inequality_for_convolutions>`_.
                     # TODO: make a zero-centered space by default and
                     # adapt the range otherwise
                     self._kernel = self._kernel_elem(
-                        self.domain.element(kernel).asarray(), self.axes)
+                        self.domain.element(kernel), self.axes)
                 except (TypeError, ValueError):
                     # Got an array-like, axes can be used
                     self._kernel = self._kernel_elem(kernel, self.axes)
-                finally:
-                    self._kernel_transform = None
-                    if scale:
-                        self._kernel *= self.domain.cell_volume
+
+                self._kernel_transform = None
+                if scale:
+                    self._kernel *= self.domain.cell_volume
+
         else:
             # Kernel given as Fourier space element
             self._kernel = None
@@ -359,9 +360,7 @@ Young.27s_inequality_for_convolutions>`_.
         kernel = np.asarray(kernel)
         extra_dims = self.domain.ndim - kernel.ndim
 
-        if extra_dims == 0:
-            return self.domain.element(kernel)
-        else:
+        if extra_dims > 0:
             if len(axes) != extra_dims:
                 raise ValueError('kernel dim {} + number of axes {} '
                                  '!= space dimension {}.'
@@ -374,22 +373,22 @@ Young.27s_inequality_for_convolutions>`_.
                 slc[ax] = slice(None)
 
             kernel = kernel[slc]
-            # Assuming uniform discretization
-            min_corner = -self.domain.cell_sides * self.domain.shape / 2
-            max_corner = self.domain.cell_sides * self.domain.shape / 2
-            if isinstance(self.domain.dspace, Ntuples):
-                impl = 'numpy'
-            elif isinstance(self.domain.dspace, CudaNtuples):
-                impl = 'cuda'
-            else:
-                raise RuntimeError
 
-            space = uniform_discr(min_corner, max_corner, kernel.shape,
-                                  self.domain.exponent, self.domain.interp,
-                                  impl, dtype=self.domain.dspace.dtype,
-                                  order=self.domain.order,
-                                  weighting=self.domain.weighting)
-            return space.element(kernel)
+        # Assuming uniform discretization
+        min_corner = -self.domain.cell_sides * self.domain.shape / 2
+        max_corner = self.domain.cell_sides * self.domain.shape / 2
+        if isinstance(self.domain.dspace, Ntuples):
+            impl = 'numpy'
+        elif isinstance(self.domain.dspace, CudaNtuples):
+            impl = 'cuda'
+        else:
+            raise RuntimeError
+
+        space = uniform_discr(min_corner, max_corner, kernel.shape,
+                              self.domain.exponent, self.domain.interp,
+                              impl, dtype=self.domain.dspace.dtype,
+                              order=self.domain.order, weighting='const')
+        return space.element(kernel)
 
     @property
     def impl(self):
