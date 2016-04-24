@@ -33,7 +33,7 @@ test:
     
 about:
     home: https://github.com/odlgroup/odl
-    license: GPLv3+
+    license: GPLv3 or later
     license_file: LICENSE
     summary: "Operator Discretization Library - a versatile Python framework for rapid prototyping in Inverse Problems and related fields"
     
