@@ -7,4 +7,3 @@ Introduction
     
     about_odl.rst
     installing.rst
-    getting_started.rst
