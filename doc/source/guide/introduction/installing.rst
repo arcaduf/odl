@@ -212,6 +212,24 @@ From here follow the instructions in odlpp_ to build and install it.
 
 .. _odlpp: https://github.com/odlgroup/odlpp
 
+
+FFTW for fast Fourier transforms
+--------------------------------
+The compiled `FFTW`_ library and its header files are required for the `pyFFTW`_ Python module to
+work (pyFFTW is simply a Python wrapper around the C library).
+
+On all major Linux distributions, the
+package can be installed through the package manager. Note that some distributions distinguish
+between "default" and "development" packages, where the latter ones include the required header
+files. Usually, these development versions are marked with a suffix "-dev" or "-devel".
+
+On MacOS X, you probably need to manually compile and install the library. Check out the
+`instructions for installation on MacOS X <http://www.fftw.org/install/mac.html>`_.
+
+For Windows, you can get precompiled binaries, but compiling manually is also possible. Go to the
+`Windows instructions <http://fftw.org/install/windows.html>`_ of FFTW.
+
+
 ASTRA for X-ray tomography
 --------------------------
 
