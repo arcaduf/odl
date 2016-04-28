@@ -55,4 +55,6 @@ References
    *Introduction to Fourier Analysis on Euclidean Spaces*.
    Princeton University Press, 1971.
 
-
+.. [ZC2008] Zhu, M and Chan, T.
+   *An efficient primal-dual hybrid gradient algorithm for total variation image restoration.*
+   UCLA CAM Report (2008), pp 08--34.
