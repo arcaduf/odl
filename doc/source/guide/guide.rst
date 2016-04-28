@@ -12,4 +12,5 @@ work with it. If you need help on a specific function or class, you are advised 
     :maxdepth: 2
 
     introduction/index
+    tutorial/tutorial
     in_depth/index

@@ -229,6 +229,25 @@ for STIR is currently very limited.
 
 .. _STIR: https://github.com/UCL/STIR
 
+
+Further optional software
+=========================
+
+Jupyter Notebook
+----------------
+The examples in the :ref:`tutorial` section are written in the Jupyter notebook (formerly IPython
+notebook) format, which requires the Jupyter software for processing.
+
+If you use Anaconda, the Jupyter package is shipped by default, so you don't have to do anything.
+Otherwise, consult your Linux package manager (seach for "jupyter") or install with ``pip`` via
+
+.. code-block:: bash
+
+    user$ pip install --user notebook
+
+See the `Jupyter installation instructions <https://jupyter.readthedocs.org/en/latest/install.html>`_
+for more detailed information.
+
 Issues
 ======
 If you have any problems during installation, consult the help in the :ref:`FAQ <FAQ>`. If that does
