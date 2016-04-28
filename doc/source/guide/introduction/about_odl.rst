@@ -22,6 +22,31 @@ The main advantages of this approach is that
 ODL implements many abstract mathematical notions such as sets, vector spaces and operators. In the
 following, a few are shown by example.
 
+
+Which problem does ODL address?
+===============================
+
+In our view, there is a significant gap between the numerical mehtods proposed in the mathematical
+literature on inverse problems and the methods used in everyday clinical, industrial and even
+academic practice. Even though its severe limitations are well-known, filtered back-projection (FBP)
+remains to be the most widely used reconstruction scheme in, e.g., medical imaging or 3D electron
+microscopy. On the other hand, the past years have seen an explosion of mathematical research on
+new reconstruction methods, ranging from total (generalized) variation regularization to compressed
+sensing and learned dictionary reconstruction.
+
+We believe that this apparent gap can be, at least to a high degree, attributed to the lack of
+access to a *versatile and easy-to-use framework* for rapid prototyping. If such a framework
+had already been available, mathematical research would involve a much larger amount of numerical
+evaluation on large and practically relevant data. On the other hand, it would give applied
+scientists the opportunity to use available numerical schemes on their data without having to dig
+deep into the underlying theory. 
+
+
+Which design principles is ODL built upon?
+==========================================
+
+TO BE CONTINUED...
+
 Set
 ===
 
