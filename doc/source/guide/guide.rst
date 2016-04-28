@@ -1,8 +1,12 @@
+.. _users_guide:
+
 ###################
 User's guide to ODL
 ###################
 
-Welcome to the ODL users guide, this guide is intended to give you a simple introduction to ODL and how to work with it. If you need help on a specific function you should look at its documentation.
+Welcome to the ODL user's guide. It is intended to give you a simple introduction to ODL and how to
+work with it. If you need help on a specific function or class, you are advised to check the
+`API reference <https://odl.readthedocs.org/odl.html>`_.
 
 .. toctree::
     :maxdepth: 2
