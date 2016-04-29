@@ -25,13 +25,13 @@ from builtins import super
 
 import numpy as np
 
-from odl.discr.lp_discr import DiscreteLp
+from odl.discr.lp_discr import DiscreteLp, uniform_discr
 from odl.operator.operator import Operator
 from odl.space.pspace import ProductSpace
 
 
 __all__ = ('PartialDerivative', 'Gradient', 'Divergence', 'Laplacian',
-           'Resampling')
+           'Resampling', 'ZeroPaddingOperator')
 
 
 # TODO: make helper function to set edge slices
@@ -911,6 +911,86 @@ class Resampling(Operator):
         >>> print(resampling(resampling_inv(y)))
         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         """
+        return self.inverse
+
+class ZeroPaddingOperator(Operator):
+
+    def __init__(self, space, padfrac, axes=None):
+        assert isinstance(space, DiscreteLp)
+        assert space.partition.is_regular
+        assert np.all(np.greater_equal(padfrac, 0))
+
+        if axes is None:
+            axes = np.arange(space.ndim)
+
+        self._padfrac = padfrac
+        self._axes = axes
+        padding = []
+        for i, p in enumerate(padfrac):
+            if i in axes:
+                padding.append(p)
+            else:
+                padding.append(0.0)
+
+        padding = np.array(padding, dtype=float)
+
+        n_old = np.array(space.shape, dtype=int)
+        n_new = np.ceil((1 + padding) * n_old).astype(int)
+        n_diff = n_new - n_old
+        n_left = n_diff // 2
+
+        self._slc_start = n_left
+        self._slc_end = self._slc_start + n_old
+
+        stride = space.cell_sides
+        newbegin = space.domain.begin - n_left * stride
+        newend = space.domain.end + (n_diff - n_left) * stride
+
+        # TODO: take care of boundary nodes
+        # TODO: handle CUDA
+        extended_space = uniform_discr(
+            min_corner=newbegin, max_corner=newend, nsamples=n_new,
+            exponent=space.exponent, interp=space.interp, impl='numpy')
+
+        super().__init__(domain=space, range=extended_space, linear=True)
+
+    def _call(self, f):
+        nstart = self._slc_start
+        nend = self._slc_end
+        slc = []
+        for s, e in zip(nstart, nend):
+            slc.append(slice(s, e))
+
+        padded_arr = self.range.zero().asarray()
+        padded_arr[slc] = f
+        return padded_arr
+
+    @property
+    def inverse(self):
+
+        zeropad_op = self
+
+        class _Inverse(ZeroPaddingOperator):
+            def __init__(self):
+                super().__init__(zeropad_op.domain, zeropad_op._padfrac,
+                                 axes=zeropad_op._axes)
+                self._domain, self._range = self._range, self._domain
+
+            def _call(self, f):
+                nstart = self._slc_start
+                nend = self._slc_end
+                slc = []
+                for s, e in zip(nstart, nend):
+                    slc.append(slice(s, e))
+
+                return f.asarray()[slc]
+
+        return _Inverse()
+
+    @property
+    def adjoint(self):
+        if self.domain.exponent != 2.0:
+            raise NotImplementedError
         return self.inverse
 
 if __name__ == '__main__':
