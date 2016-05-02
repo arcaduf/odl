@@ -21,6 +21,7 @@
 from __future__ import print_function, division, absolute_import
 from future import standard_library
 standard_library.install_aliases()
+from builtins import next, object
 
 from abc import ABCMeta, abstractmethod
 import numpy as np
@@ -28,8 +29,8 @@ import numpy as np
 from odl.util.utility import with_metaclass
 
 
-__all__ = ('StepLength', 'LineSearch',
-           'BacktrackingLineSearch', 'ConstantLineSearch')
+__all__ = ('StepLength', 'StepLengthFromIter', 'ConstantStepLength',
+           'LineSearch', 'BacktrackingLineSearch', 'ConstantLineSearch')
 
 
 # TODO: find a good name
@@ -40,23 +41,75 @@ class StepLength(with_metaclass(ABCMeta, object)):
     # TODO: change signature so it reflects the requirements for e.g.
     # Barzilai-Borwein
     @abstractmethod
-    def __call__(self, x, direction, dir_derivative):
+    def __call__(self, state):
         """Calculate the step length at a point.
 
         Parameters
         ----------
-        x : `Operator.domain` `element`
-            The current point
-        direction : `Operator.domain` `element`
-            Search direction in which the line search should be computed
-        dir_derivative : `float`
-            Directional derivative along the ``direction``
+        state :
+            The current state of the iteration scheme
 
         Returns
         -------
         step : `float`
             The step length
         """
+
+
+class StepLengthFromIter(StepLength):
+
+    """Simple step length rule returning values from an iterator."""
+
+    def __init__(self, iterator):
+        """Initialize a new instance.
+
+        Parameters
+        ----------
+        iterator : `iterator`
+            Object from which to return the values
+        """
+        self._iterator = iter(iterator)
+
+    @property
+    def iterator(self):
+        return self._iterator
+
+    def __call__(self, state):
+        """Return the next step length.
+
+        Parameters
+        ----------
+        state :
+            The current state of the iteration scheme
+
+        Returns
+        -------
+        step : `float`
+            The step length
+        """
+        return float(next(self.iterator))
+
+
+class ConstantStepLength(StepLengthFromIter):
+
+    """Constant step length rule."""
+
+    def __init__(self, constant):
+        """Initialize a new instance.
+
+        Parameters
+        ----------
+        constant : `float`
+            The constant step length
+        """
+        class ConstIter(object):
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                return float(constant)
+
+        super().__init__(ConstIter())
 
 
 class LineSearch(with_metaclass(ABCMeta, object)):
