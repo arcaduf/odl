@@ -22,25 +22,28 @@ standard_library.install_aliases()
 
 import numpy as np
 
-from odl.discr.discr_ops import Gradient, Divergence
 from odl.operator.default_ops import ResidualOperator
 from odl.operator.operator import Operator, OpDomainError, OpRangeError
 from odl.solvers.scalar.steplen import (
     StepLength, StepLengthFromIter, ConstantStepLength)
-from odl.space.pspace import ProductSpace
 
-def primal_dual_hybrid_gradient_tv(fwd_op, data, primal, dual, pstep, dstep,
-                                   reg_param, proj_op, niter=1, callback=None):
 
-    """Primal-dual method for TV regularisation.
+__all__ = ('primal_dual_hybrid_gradient',)
+
+
+def primal_dual_hybrid_gradient(fwd_op, data, primal, dual, spars_op,
+                                proj_op, pstep, dstep, reg_param, niter=1,
+                                callback=None):
+    """Primal-dual method for TV-type regularisation.
 
     This is an implementation of the classical PDHG method by Zhu
-    and Chan [ZC2008]_. It aims to minimise
+    and Chan [ZC2008]_. It aims to minimize
 
-        ``1/2 * ||T(f) - g||^2 + lambda * ||grad(f)||``
+        ``1/2 * ||T(f) - g||^2 + lambda * ||S(f)||``
 
-    where the first norm is a Hilbert space norm and the second one
-    an arbitrary vector field norm. See Notes for mathematical details.
+    where the first norm (data fit) is a Hilbert space norm and the
+    second one (regularization) an arbitrary vector field norm.
+    See Notes for mathematical details.
 
     Parameters
     ----------
@@ -52,12 +55,18 @@ def primal_dual_hybrid_gradient_tv(fwd_op, data, primal, dual, pstep, dstep,
         Variable ``f`` used in the primal iteration. The final
         reconstruction will be stored in this object when the method
         is finished.
-    dual : ``ProductSpace(primal.space, ndim)`` `element`
-        An element of ``X^d``, where ``X`` is the reconstruction
-        space and ``d`` is the number of dimensions. The space of
-        this object is the same as the range of
-        ``Gradient(primal.space)``. The dual iteration is performed
-        in-place in this variable.
+    dual : ``spars_op.range`` `element`
+        Variable used in the dual iteration. It is updated in-place in
+        each iteration step.
+    spars_op : linear `Operator`
+        Sparsifying operator ``S`` used in the regularization term.
+        A typical choice is ``Gradient(primal.space)``.
+    proj_op : `Operator`
+        Projection operator applied to the dual in each step. A proper
+        implementation of this step is crucial since it is the only
+        place where the norm of the gradient enters the iteration.
+        The projection operator must map the ``dual.space`` to
+        itself.
     pstep, dstep : {`float`, `iterator`, `StepLength`}
         Rule for the selection of the primal/dual step parameter
         ``theta/tau``.
@@ -66,18 +75,14 @@ def primal_dual_hybrid_gradient_tv(fwd_op, data, primal, dual, pstep, dstep,
         can be used for an adaptive rule.
     reg_param : nonnegative `float`
         Regularisation parameter ``lambda`` steering the weight of the
-        total variation penaliser. Larger value means less trust in the
-        data and more weight on the regulariser.
-    proj_op : `Operator`
-        Projection operator applied to the dual in each step. A proper
-        implementation of this step is crucial since it is the only
-        place where the norm of the gradient enters the iteration.
-        The projection operator must map the ``dual.space`` to
-        itself.
+        total variation penalizer. Larger value means less trust in the
+        data and more weight on the regularizer.
     niter : positive `int`, optional
         Number of iterations to compute
     callback : `callable`, optional
-        Function or object to be evaluated on the primal in each step
+        Function or object to be evaluated on the primal in each
+        iteration. It is used as ``callback(xi)``, where ``xi`` is the
+        current iterate.
 
     See also
     --------
@@ -87,32 +92,39 @@ def primal_dual_hybrid_gradient_tv(fwd_op, data, primal, dual, pstep, dstep,
     -----
 
     The PDHG method solves for given data :math:`g\in\mathcal{Y}`,
-    a linear operator :math:`\mathcal{T}:\mathcal{X}\\to\mathcal{Y}`
+    a linear forward operator
+    :math:`\mathcal{T}:\mathcal{X}\\to\mathcal{Y}`, a sparsifying
+    linear operator :math:`\mathcal{S}:\mathcal{X}\\to\mathcal{Z}`
     and a regularisation parameter :math:`\lambda > 0` the problem
 
         :math:`\min_{f \\in \mathcal{X}} \Big(\\frac{1}{2}
         \\lVert \mathcal{T}(f) - g\\rVert_{\mathcal{Y}}^2 +
-        \\lambda \\lVert \mathrm{grad}f\\rVert \Big)`,
+        \\lambda \\lVert \mathcal{S}(f)\\rVert_{\mathcal{Z}} \Big)`,
 
     where the first norm is the Hilbert space norm in the data space
-    and the second a vectorial norm in the reconstruction space. We
-    assume that the norm in the regularising term satisfies
+    and the second a norm in the range :math:`\mathcal{Z}` of the
+    sparsifying opertor. For classical TV regularization, one can
+    choose :math:`S = \\nabla` and
+    :math:`\\lVert \cdot \\rVert_{\mathcal{Z}} = \\lVert \cdot \\rVert_1`.
 
-        :math:`\\lVert f\\rVert =
+    We assume that the norm in the regularising term can be written as
+
+        :math:`\\lVert f\\rVert_{\mathcal{Z}} =
         \\sup_{\\lVert h\\rVert_\\ast \\leq 1}
         \\langle f, h\\rangle_{\mathcal{X}}`,
 
-    with the *associate norm* :math:`\\lVert \cdot \\rVert_\\ast`.
+    with an *associate norm* :math:`\\lVert \cdot \\rVert_\\ast`.
     Then the method can be written as the following iteration scheme in
-    the primal variable :math:`p` and the dual variable :math:`d`:
+    the primal variable :math:`p` and the dual variable
+    :math:`\mathbf{d}`:
 
         :math:`\mathbf{d}_{k+1} =
-        \mathcal{P}_{\\lVert\cdot\\rVert_\\ast \\leq 1}(\mathbf{d}_k -
-        \\tau\, \mathrm{grad} f)`,
+        \mathcal{P}_{\\lVert\cdot\\rVert_\\ast \\leq 1}
+        \\big(\mathbf{d}_k - \\tau\, \mathcal{S}(f)\\big)`,
 
         :math:`p_{k+1} =
         p_k - \\theta \\big(\mathcal{T}^*\\big(\mathcal{T}(p_k)
-        - g\\big) + \\lambda\, \mathrm{div}\mathbf{d}_{k+1} \\big)`.
+        - g\\big) - \\lambda\, \mathcal{S}^*(\mathbf{d}_{k+1}) \\big)`.
 
     Here, :math:`\mathcal{P}_{\\lVert\cdot\\rVert_\\ast \\leq 1}` denotes
     the projection onto the unit ball in the associate norm.
@@ -120,7 +132,10 @@ def primal_dual_hybrid_gradient_tv(fwd_op, data, primal, dual, pstep, dstep,
     # --- Handle input parameters --- #
 
     if not isinstance(fwd_op, Operator):
-        raise TypeError('{!r} is not an Operator instance.'.format(fwd_op))
+        raise TypeError('forward operator {!r} is not an Operator instance.'
+                        ''.format(fwd_op))
+    if not fwd_op.is_linear:
+        raise ValueError('forward operator is not linear.')
 
     data = fwd_op.range.element(data)
 
@@ -129,11 +144,26 @@ def primal_dual_hybrid_gradient_tv(fwd_op, data, primal, dual, pstep, dstep,
                         'operator domain {!r}.'
                         ''.format(primal, fwd_op.domain))
 
-    dual_space = ProductSpace(primal.space, primal.space.ndim)
-    if dual not in dual_space:
-        raise TypeError('dual {!r} is not an element of the power space '
-                        'X^{} with X = primal space {!r}.'
-                        ''.format(dual, primal.space.ndim, primal.space))
+    if not isinstance(spars_op, Operator):
+        raise TypeError('sparsifying operator {!r} is not an Operator '
+                        'instance.'.format(spars_op))
+    if spars_op.domain != primal.space:
+        raise OpDomainError('sparsifying operator domain is not the primal '
+                            'variable space {!r}.'.format(primal.space))
+    if dual not in spars_op.range:
+        raise TypeError('dual {!r} is not an element of the range of the '
+                        'sparsifying operator {}.'
+                        ''.format(dual, spars_op.range))
+
+    if not isinstance(proj_op, Operator):
+        raise TypeError('projection operator {!r} is not an Operator instance.'
+                        ''.format(proj_op))
+    if proj_op.domain != dual.space:
+        raise OpDomainError('projection operator domain is not the dual '
+                            'variable space {!r}.'.format(dual.space))
+    if proj_op.range != dual.space:
+        raise OpRangeError('projection operator range is not the dual '
+                           'variable space {!r}.'.format(dual.space))
 
     # TODO: StepLength currently coexists with LineSearch, and the new
     # StepLengthFromIter is the only implementation.
@@ -155,23 +185,13 @@ def primal_dual_hybrid_gradient_tv(fwd_op, data, primal, dual, pstep, dstep,
         raise ValueError('expected nonnegative regularization parameter, '
                          'got {}.'.format(reg_param))
 
-    if not isinstance(proj_op, Operator):
-        raise TypeError('{!r} is not an Operator instance.'.format(proj_op))
-    if proj_op.domain != dual_space:
-        raise OpDomainError('projection operator domain is not the dual '
-                            'variable space {!r}.'.format(dual_space))
-    if proj_op.range != dual_space:
-        raise OpDomainError('projection operator range is not the dual '
-                            'variable space {!r}.'.format(dual_space))
+    if callback is not None:
+        if not callable(callback):
+            raise TypeError('callback {!r} is not callable.'.format(callback))
+        use_callback = True
 
     # --- Create auxiliary objects --- #
 
-    # TODO: generalise to arbitrary sparsifying operator instead of the
-    # gradient?
-    grad_op = Gradient(primal.space)
-    # TODO: Why the hell is the divergence initialized with the primal space?
-    # See https://github.com/odlgroup/odl/issues/375
-    div_op = Divergence(primal.space)
     res_op = ResidualOperator(fwd_op, data)
     tmp_primal = primal.space.element()
     tmp_dual = dual.space.element()
@@ -181,7 +201,8 @@ def primal_dual_hybrid_gradient_tv(fwd_op, data, primal, dual, pstep, dstep,
         # Dual step
         # TODO: define dstep interface, currently ignores input
         cur_dstep = dstep(dual)
-        tmp_dual.lincomb(1, dual, -cur_dstep, grad_op(primal))
+        spars_op(primal, out=tmp_dual)
+        tmp_dual.lincomb(1, dual, -cur_dstep, tmp_dual)
         proj_op(tmp_dual, out=dual)
 
         # Primal step
@@ -192,5 +213,13 @@ def primal_dual_hybrid_gradient_tv(fwd_op, data, primal, dual, pstep, dstep,
         # TODO: extension to non-linear operators?
         fwd_op.adjoint(tmp_data, out=tmp_primal)
         primal.lincomb(1, primal, -cur_pstep, tmp_primal)
-        div_op(dual, out=tmp_primal)
-        primal.lincomb(1, primal, -cur_pstep * reg_param, tmp_primal)
+        spars_op.adjoint(dual, out=tmp_primal)
+        primal.lincomb(1, primal, cur_pstep * reg_param, tmp_primal)
+
+        if use_callback:
+            callback(primal)
+
+if __name__ == '__main__':
+    # pylint: disable=wrong-import-position
+    from odl.util.testutils import run_doctests
+    run_doctests()
