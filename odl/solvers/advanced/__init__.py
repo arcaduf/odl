@@ -26,3 +26,6 @@ __all__ += chambolle_pock.__all__
 from . import proximal_operators
 from .proximal_operators import *
 __all__ += proximal_operators.__all__
+
+from .pdhg import *
+__all__ += pdhg.__all__
