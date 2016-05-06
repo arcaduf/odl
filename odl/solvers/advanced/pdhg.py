@@ -33,7 +33,7 @@ __all__ = ('primal_dual_hybrid_gradient',)
 
 def primal_dual_hybrid_gradient(fwd_op, data, primal, dual, spars_op,
                                 proj_op, pstep, dstep, reg_param, niter=1,
-                                callback=None):
+                                **kwargs):
     """Primal-dual method for TV-type regularisation.
 
     This is an implementation of the classical PDHG method by Zhu
@@ -185,10 +185,13 @@ def primal_dual_hybrid_gradient(fwd_op, data, primal, dual, spars_op,
         raise ValueError('expected nonnegative regularization parameter, '
                          'got {}.'.format(reg_param))
 
+    callback = kwargs.pop('callback', None)
     if callback is not None:
         if not callable(callback):
             raise TypeError('callback {!r} is not callable.'.format(callback))
         use_callback = True
+    else:
+        use_callback = False
 
     # --- Create auxiliary objects --- #
 
@@ -197,11 +200,14 @@ def primal_dual_hybrid_gradient(fwd_op, data, primal, dual, spars_op,
     tmp_dual = dual.space.element()
     tmp_data = fwd_op.range.element()
 
+    # --- Run the method --- #
+
     for _ in range(niter):
         # Dual step
         # TODO: define dstep interface, currently ignores input
         cur_dstep = dstep(dual)
         spars_op(primal, out=tmp_dual)
+
         tmp_dual.lincomb(1, dual, -cur_dstep, tmp_dual)
         proj_op(tmp_dual, out=dual)
 
