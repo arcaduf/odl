@@ -27,7 +27,7 @@ import numpy as np
 
 __all__ = ('ellipse_phantom_2d', 'ellipse_phantom_3d',
            'cuboid', 'indicate_proj_axis',
-           'derenzo_sources', 'shepp_logan', 'submarine_phantom',
+           'derenzo_sources', 'shepp_logan', 'submarine_phantom', 'disc_phantom', 
            'white_noise')
 
 
