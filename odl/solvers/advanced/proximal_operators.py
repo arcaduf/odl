@@ -229,7 +229,10 @@ def proximal_convexconjugate_l2(space, lam=1, g=None):
             sigma : positive `float`
                 Step size parameter
             """
-            self.sigma = float(sigma)
+            if isinstance(sigma, Operator):
+                self.sigma = sigma
+            else:
+                self.sigma = float(sigma)
             super().__init__(domain=space, range=space, linear=False)
 
         def _call(self, x, out):
@@ -238,8 +241,12 @@ def proximal_convexconjugate_l2(space, lam=1, g=None):
 
             # (x - sig*g) / (1 + sig/lam)
 
-            sig = self.sigma
-            out.lincomb(1 / (1 + sig / lam), x, -sig / (1 + sig / lam), g)
+
+            if isinstance(self.sigma, Operator):
+                pass
+            else:
+                out.lincomb(1 / (1 + self.sigma / lam), x,
+                            -self.sigma / (1 + self.sigma / lam), g)
 
     return _ProximalConvConjL2
 
@@ -322,7 +329,8 @@ def proximal_convexconjugate_l1(space, lam=1, g=None):
                 tmp = diff[0] ** 2
                 sq_tmp = x[0].space.element()
                 for x_i in diff[1:]:
-                    sq_tmp.multiply(x_i, x_i)
+                    x_i.ufunc.square(out=sq_tmp)
+                    #sq_tmp.multiply(x_i, x_i)
                     tmp += sq_tmp
                 tmp.ufunc.sqrt(out=tmp)
 

@@ -800,9 +800,9 @@ class DiscreteFourierTransform(Operator):
     @property
     def adjoint(self):
         """Adjoint transform, equal to the inverse."""
-        if self.domain.field == RealNumbers():
-            raise NotImplementedError(
-                'Fourier transform from real to complex space has no adjoint.')
+        #if self.domain.field == RealNumbers():
+        #    raise NotImplementedError(
+        #        'Fourier transform from real to complex space has no adjoint.')
         if self.domain.exponent == 2.0 and self.range.exponent == 2.0:
             return self.inverse
         else:
@@ -1776,10 +1776,10 @@ class FourierTransform(Operator):
     @property
     def adjoint(self):
         """The adjoint Fourier transform."""
-        if self.domain.field == RealNumbers():
-            raise NotImplementedError(
-                'Fourier transform from real to complex space has no adjoint.')
-        elif self.domain.exponent == 2.0 and self.range.exponent == 2.0:
+        #if self.domain.field == RealNumbers():
+        #    raise NotImplementedError(
+        #        'Fourier transform from real to complex space has no adjoint.')
+        if self.domain.exponent == 2.0 and self.range.exponent == 2.0:
             return self.inverse
         else:
             raise NotImplementedError(

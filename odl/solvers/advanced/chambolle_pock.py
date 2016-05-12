@@ -242,16 +242,19 @@ def chambolle_pock_solver(op, x, tau, sigma, proximal_primal, proximal_dual,
         # Gradient ascent in the dual variable y
         if precond_dual is None:
             dual_tmp = y + sigma * op(x_relax)
+            proximal_dual(sigma)(dual_tmp, out=y)
         else:
             dual_tmp = y + sigma * precond_dual(op(x_relax))
-        proximal_dual(sigma)(dual_tmp, out=y)
+            proximal_dual(sigma)(precond_dual.inverse(dual_tmp), out=y)
+            #y = dual_tmp + precond_dual(y - dual_tmp)
 
         # Gradient descent in the primal variable x
         if precond_primal is None:
             primal_tmp = x + (- tau) * op_adjoint(y)
+            proximal_primal(tau)(primal_tmp, out=x)
         else:
             primal_tmp = x + (- tau) * precond_primal(op_adjoint(y))
-        proximal_primal(tau)(primal_tmp, out=x)
+            proximal_primal(tau)(primal_tmp, out=x)
 
         # Acceleration
         if gamma is not None:
