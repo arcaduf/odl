@@ -8,16 +8,12 @@ from __future__ import print_function, division, absolute_import
 from future import standard_library
 standard_library.install_aliases()
 from builtins import super
-
 from numbers import Number
 from odl.operator.operator import Operator, OperatorComp
 import odl
 import numpy as np
-
 from functools import partial
-
 from time import clock
-
 from scipy import signal
 
 
@@ -1089,8 +1085,10 @@ class DisplacementOperator(Operator):
 
         ft_momenta = vectorial_ft_op(alphas)
         ft_displacement = self.kernel_2dfft_zero_padding() * ft_momenta
-        return (vectorial_ft_op_inverse(ft_displacement) *
-                self.domain.cell_volume * 2.0 * np.pi)
+        return vectorial_ft_op_inverse(ft_displacement)
+        # scaling
+#        return (vectorial_ft_op_inverse(ft_displacement) /
+#                self.discr_space.cell_volume * 2.0 * np.pi)
 
     def _call(self, alphas):
         """Implementation of ``self(alphas, out)``.
@@ -1125,13 +1123,13 @@ class DisplacementOperator(Operator):
         deriv : `Operator`
             The derivative of this operator, evaluated at ``alphas``
         """
-        deriv_op = DisplacementOperatorDerivative(
+        deriv_op = DisplacementDerivative(
             alphas, self.control_points, self.discr_space, self.kernel)
 
         return deriv_op
 
 
-class DisplacementOperatorDerivative(DisplacementOperator):
+class DisplacementDerivative(DisplacementOperator):
 
     """Frechet derivative of the displacement operator at alphas."""
 
@@ -1180,13 +1178,13 @@ class DisplacementOperatorDerivative(DisplacementOperator):
     @property
     def adjoint(self):
         """Adjoint of the displacement derivative."""
-        adj_op = DisplacementOperatorDerivativeAdjoint(
+        adj_op = DisplacementDerivativeAdjoint(
             self.alphas, self.control_points, self.discr_space, self.kernel)
 
         return adj_op
 
 
-class DisplacementOperatorDerivativeAdjoint(DisplacementOperatorDerivative):
+class DisplacementDerivativeAdjoint(DisplacementDerivative):
 
     """Adjoint of the Displacement operator derivative.
     """
@@ -1306,12 +1304,12 @@ class LinearizedDeformationOperator(Operator):
         deriv : `Operator`
         The derivative of this operator, evaluated at ``displacement``
         """
-        deriv_op = LinearizedDeformationOperatorDerivative(self.template,
-                                                           displacement)
+        deriv_op = LinearizedDeformationDerivative(self.template,
+                                                   displacement)
         return deriv_op
 
 
-class LinearizedDeformationOperatorDerivative(LinearizedDeformationOperator):
+class LinearizedDeformationDerivative(LinearizedDeformationOperator):
 
     """Frechet derivative of the Linearized deformation operator."""
 
@@ -1382,7 +1380,7 @@ class LinearizedDeformationOperatorDerivative(LinearizedDeformationOperator):
         return adj_op
 
 
-class LinearizedDeformationDerivativeAdjoint(LinearizedDeformationOperatorDerivative):
+class LinearizedDeformationDerivativeAdjoint(LinearizedDeformationDerivative):
 
     """Adjoint of the template deformation operator derivative.
 
@@ -1453,6 +1451,7 @@ class ShapeRegularizationFunctional(Operator):
             self._kernel_op = kernel_op
         else:
             self._kernel_op = odl.MatVecOperator(kernel_op)
+        self.par_space = par_space
 
     def _call(self, alphas):
         """Return ``self(alphas)``."""
@@ -1479,10 +1478,12 @@ class ShapeRegularizationFunctional(Operator):
 
         The gradient of the functional is given by
 
-            grad(S)(alpha) = K alpha
+            grad(S)(alpha) = K alpha.
+
+        This is used for the 2D case: control grid = image grid.
         """
-        padding_op = odl.ZeroPaddingOperator(template.space, [1, 1])
-        shifts = [not s % 2 for s in template.space.shape]
+        padding_op = odl.ZeroPaddingOperator(self.par_space[0], [1, 1])
+        shifts = [not s % 2 for s in self.par_space[0].shape]
 
         ft_op = odl.trafos.FourierTransform(
             padding_op.range, halfcomplex=False, shift=shifts)
@@ -1497,17 +1498,18 @@ class ShapeRegularizationFunctional(Operator):
 
         ft_momenta = vectorial_ft_op(alphas)
 
-        kspace = odl.ProductSpace(template.space, 2)
+        kspace = self.par_space
 
         # Create the array of kernel values on the grid points
-        discretized_kernel1 = template.space.element(kernel)
-        discretized_kernel2 = template.space.element(kernel)
+        discretized_kernel1 = self.par_space[0].element(kernel)
+        discretized_kernel2 = self.par_space[0].element(kernel)
         discretized_kernel = kspace.element([discretized_kernel1,
                                              discretized_kernel2])
 
         ft_kernel = vectorial_ft_op(discretized_kernel)
         ft_displacement = ft_kernel*ft_momenta
-        return vectorial_ft_op_inverse(ft_displacement)
+        return (vectorial_ft_op_inverse(ft_displacement) /
+                self.par_space[0].cell_volume * 2.0 * np.pi)
 
 
 class L2DataMatchingFunctional(Functional):
@@ -1668,53 +1670,12 @@ cptssapce = odl.uniform_discr([-0.5, -0.5], [0.5, 0.5], [n, n],
 vspace = odl.ProductSpace(cptssapce, 2)
 
 # Create input function as disc phantom
-template = odl.util.phantom.disc_phantom(discr_space, smooth=True, taper=50.0)
+template = odl.util.disc_phantom(discr_space, smooth=True, taper=50.0)
 template.show('Original template')
-
-# Define the momenta and set it to zeroes
-values = vspace.zero()
-#momenta = vspace.element(values)
-momenta = values
-
-#for m in momenta:
-#    m[:] = odl.util.numerics.apply_on_boundary(np.asarray(m), lambda x: 0)
-
-
-displacement_op = DisplacementOperator(vspace, cptssapce.grid, discr_space,
-                                       kernel)
-displacement_test = displacement_op(momenta)
-
-
-tpl_op = TemplateDeformationOperator(vspace, cptssapce.grid, template, kernel,
-                                     kernel1)
-
-#start1=clock()
-#deformed_template = tpl_op.deform_2dfft(template, momenta) # deformed image
-#finish1=clock()
-#print(finish1-start1)
-#deformed_template.show('Deformed template FFT')
-
-#start2=clock()
-#deformed_template2 = tpl_op.deform(template, momenta) # deformed image
-#finish2=clock()
-#print(finish2-start2)
-#deformed_template2.show('Deformed template')
-
-#start3=clock()
-#deformed_template3 = tpl_op.deform_2dconv(template, momenta) # deformed image
-#finish3=clock()
-#print(finish3-start3)
-#deformed_template3.show('Deformed template Conv')
-
-start4=clock()
-deformed_template4 = tpl_op.deform_2dfft_zero_padding(template, momenta) # deformed image
-finish4=clock()
-print(finish4-start4)
-#deformed_template4.show('Deformed template zero_padding')
 
 # Create target function as submarine phantom
 target = odl.util.submarine_phantom(discr_space, smooth=True, taper=50.0)
-# target.show('Target')
+target.show('Target')
 
 # Create projection domain
 detector_partition = odl.uniform_partition(-0.75, 0.75, 151)
@@ -1735,71 +1696,52 @@ proj_data = xray_trafo_op(target)
 noise = proj_data.space.element(proj_noise(proj_data.shape[0],
                                            proj_data.shape[1]))
 
-# Create noisy projections, noise: (0, 0.1)
+# Create noisy projections, noise ~ (0, 0.1)
 noise_proj_data = proj_data + 0.1 * noise
 
-# Create backprojection
-backproj = xray_trafo_op.adjoint(noise_proj_data)
-
-# Shows a slice of the phantom, projections, and reconstruction
-proj_data.show(title='Projection data (sinogram)')
-noise.show('noise')
-noise_proj_data.show(title='Noise projection data (sinogram)')
-backproj.show(title='Backprojected data')
-
 # Create and initialize deformation field
-values = np.zeros([2, n, n])
-#values[0, :, :n//2] = 0.0  # movement in "x" direction
-#values[1, n//2, :] = 0.0   # movement in "y" direction
-def_coeff = vspace.element(values)
+# Define the momenta and set it to zeroes or ones for test
+momenta = 10 * vspace.one()
 
-# Show input
-template.show(title='Template')
-target.show('Target')
-#def_coeff.show(title='deformation')
+displacement_op = DisplacementOperator(vspace, cptssapce.grid,
+                                       discr_space, kernel)
+displ = displacement_op(momenta)
 
+linear_deform_op = LinearizedDeformationOperator(template)
+deformed_template = linear_deform_op(displ)
 
-## Compute the gradient of L2 fitting term by mathematical method directly
-#tpl_op = TemplateDeformationOperator(vspace, cptssapce.grid, template, kernel, kernel1)
-#deformed_image = tpl_op(def_coeff) # deformed image
-#tpl_op_deriv = tpl_op.derivative(def_coeff)  # an operator
-#proj_data_deformed_image = xray_trafo_op(deformed_image)
-#backproj_diff = xray_trafo_op.adjoint(proj_data_deformed_image - proj_data)
-## backproj_diff.show('back projection of difference')
-#tpl_deriv_adj = tpl_op_deriv.adjoint
-#adj_result = tpl_deriv_adj(backproj_diff) # Back projection of difference as the function f(x)
-#adj_result.show('adjoint result')
+proj_deformed_template = xray_trafo_op(deformed_template)
 
 # Composition of the L2 fitting term with a deformation operator
-l2_data_fit = L2DataMatchingFunctional(xray_trafo_op.range, noise_proj_data)
-data_fitting_term = l2_data_fit * xray_trafo_op * tpl_op
-# Compute the gradient of the fitting term
-grad_data_fitting_term = data_fitting_term.gradient(def_coeff)
+l2_data_fit_func = L2DataMatchingFunctional(xray_trafo_op.range, noise_proj_data)
 
+data_fitting_term = l2_data_fit_func * xray_trafo_op * linear_deform_op * displacement_op
 
 # Compute the gradient of shape-based regularization term
 kernelmatrix = gaussian_kernel_matrix(cptssapce.grid, sigma)
 shape_func = ShapeRegularizationFunctional(vspace, kernelmatrix)
-#grad_shape_func = shape_func._gradient_2dfft_zero_padding(template, def_coeff, kernel)
-#grad_shape_func = shape_func._gradient(def_coeff)
-#grad_shape_func.show('gradient of shape functional')
+# grad_shape_func = shape_func._gradient_2dfft_zero_padding
+# (template, def_coeff, kernel)
+# grad_shape_func = shape_func._gradient(def_coeff)
+# grad_shape_func.show('gradient of shape functional')
 
 # Shape regularization parameter, nonnegtive
-lambda_shape =  0.00001
+lambda_shape = 0.00001
 # Stepsize for iterations
 eta = 0.00025
 # Iterations for updating alphas
 for i in range(1):
-    #grad_shape_func = shape_func._gradient_2dfft_zero_padding(template, def_coeff, kernel)
-    grad_shape_func = shape_func._gradient(def_coeff)
-    grad_data_fitting_term = data_fitting_term.gradient(def_coeff)
-    def_coeff -= eta * (2 * lambda_shape * grad_shape_func +
-                        grad_data_fitting_term)
+    # grad_shape_func = shape_func._gradient_2dfft_zero_padding
+    # (template, def_coeff, kernel)
+    grad_shape_func = shape_func._gradient(momenta)
+    grad_data_fitting_term = data_fitting_term.gradient(momenta)
+    momenta -= eta * (2 * lambda_shape * grad_shape_func + grad_data_fitting_term)
     print(i)
     print(grad_shape_func)
     print(grad_data_fitting_term)
-    print(def_coeff)
+    print(momenta)
 
     if (i+1) % 5 == 0:
-        deformed_image = tpl_op(def_coeff)  # deformed image
-        deformed_image.show(title='deformed image')
+        displ = displacement_op(momenta)
+        deformed_template = linear_deform_op(displ)  # deformed image
+        deformed_template.show(title='Deformed template')
