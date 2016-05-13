@@ -1473,7 +1473,7 @@ class ShapeRegularizationFunctional(Operator):
         return self.domain.element([self._kernel_op(np.asarray(a).reshape(-1))
                                     for a in alphas])
 
-    def _gradient_2dfft_zero_padding(self, template, alphas, kernel):
+    def _gradient_2dfft_zero_padding(self, alphas, kernel):
         """Return the gradient at ``alphas``.
 
         The gradient of the functional is given by
@@ -1720,10 +1720,9 @@ data_fitting_term = l2_data_fit_func * xray_trafo_op * linear_deform_op * displa
 # Compute the gradient of shape-based regularization term
 kernelmatrix = gaussian_kernel_matrix(cptssapce.grid, sigma)
 shape_func = ShapeRegularizationFunctional(vspace, kernelmatrix)
+# grad_shape_func = shape_func._gradient(momenta)  # old method
 # grad_shape_func = shape_func._gradient_2dfft_zero_padding
-# (template, def_coeff, kernel)
-# grad_shape_func = shape_func._gradient(def_coeff)
-# grad_shape_func.show('gradient of shape functional')
+# (template, def_coeff, kernel)  ## fft method
 
 # Shape regularization parameter, nonnegtive
 lambda_shape = 0.00001
@@ -1731,9 +1730,7 @@ lambda_shape = 0.00001
 eta = 0.00025
 # Iterations for updating alphas
 for i in range(1):
-    # grad_shape_func = shape_func._gradient_2dfft_zero_padding
-    # (template, def_coeff, kernel)
-    grad_shape_func = shape_func._gradient(momenta)
+    grad_shape_func = shape_func._gradient_2dfft_zero_padding(momenta, kernel)
     grad_data_fitting_term = data_fitting_term.gradient(momenta)
     momenta -= eta * (2 * lambda_shape * grad_shape_func + grad_data_fitting_term)
     print(i)
