@@ -198,6 +198,8 @@ class FunctionalComp(Functional, OperatorComp):
             the returned object is a reference to it.
         """
         if out is None:
+            # adj_op = self._right.derivative(x).adjoint
+            # return adj_op(self._left.gradient(self._right(x)))
             return self._right.derivative(x).adjoint(
                 self._left.gradient(self._right(x)))
         else:
@@ -1330,7 +1332,7 @@ class LinearizedDeformationDerivative(LinearizedDeformationOperator):
         self.template = template
         self.displacement = displacement
 
-        Operator.__init__(self.displacement.space, self.template.space,
+        Operator.__init__(self, self.displacement.space, self.template.space,
                           linear=False)
 
     def derivative(self, *args, **kwargs):
@@ -1347,11 +1349,8 @@ class LinearizedDeformationDerivative(LinearizedDeformationOperator):
             Gradient of the template, i.e. a vector field on the
             image domain
         """
-
-        for gf in grad_f:
-            gf = self.linear_deform(gf, self.displacement)
-
-        return grad_f
+        temp = [self.linear_deform(gf, self.displacement) for gf in grad_f]
+        return self.displacement.space.element(temp)
 
     def _call(self, disp_like):
         """Implementation of ``self(disp_like)``.
@@ -1373,10 +1372,10 @@ class LinearizedDeformationDerivative(LinearizedDeformationOperator):
         return result
 
     @property
-    def adjoint(self, displacement):
+    def adjoint(self):
         """Adjoint of the template deformation derivative."""
-        adj_op = LinearizedDeformationDerivativeAdjoint(self.template,
-                                                        displacement)
+        adj_op = LinearizedDeformationDerivativeAdjoint(
+            self.template, self.displacement)
         return adj_op
 
 
@@ -1412,10 +1411,10 @@ class LinearizedDeformationDerivativeAdjoint(LinearizedDeformationDerivative):
         """
         grad = odl.Gradient(self._domain)
         template_grad = grad(self.template)
+
         def_grad = self._deform_grad(template_grad)
 
-        for gf in def_grad:
-            gf = gf * func
+        def_grad = template_grad.space.element([gf * func for gf in def_grad])
 
         return def_grad
 
@@ -1507,9 +1506,10 @@ class ShapeRegularizationFunctional(Operator):
                                              discretized_kernel2])
 
         ft_kernel = vectorial_ft_op(discretized_kernel)
-        ft_displacement = ft_kernel*ft_momenta
-        return (vectorial_ft_op_inverse(ft_displacement) /
-                self.par_space[0].cell_volume * 2.0 * np.pi)
+        ft_displacement = ft_kernel * ft_momenta
+        return vectorial_ft_op_inverse(ft_displacement)
+#        return (vectorial_ft_op_inverse(ft_displacement) /
+#                self.par_space[0].cell_volume * 2.0 * np.pi)
 
 
 class L2DataMatchingFunctional(Functional):
@@ -1699,13 +1699,18 @@ noise = proj_data.space.element(proj_noise(proj_data.shape[0],
 # Create noisy projections, noise ~ (0, 0.1)
 noise_proj_data = proj_data + 0.1 * noise
 
+# proj_data_template = xray_trafo_op(template)
+# backproj = xray_trafo_op.adjoint(proj_data_template-noise_proj_data)
+# backproj.show('backproj')
+
 # Create and initialize deformation field
 # Define the momenta and set it to zeroes or ones for test
-momenta = 10 * vspace.one()
+momenta = vspace.zero()
 
 displacement_op = DisplacementOperator(vspace, cptssapce.grid,
                                        discr_space, kernel)
 displ = displacement_op(momenta)
+
 
 linear_deform_op = LinearizedDeformationOperator(template)
 deformed_template = linear_deform_op(displ)
@@ -1713,7 +1718,8 @@ deformed_template = linear_deform_op(displ)
 proj_deformed_template = xray_trafo_op(deformed_template)
 
 # Composition of the L2 fitting term with a deformation operator
-l2_data_fit_func = L2DataMatchingFunctional(xray_trafo_op.range, noise_proj_data)
+l2_data_fit_func = L2DataMatchingFunctional(xray_trafo_op.range,
+                                            noise_proj_data)
 
 data_fitting_term = l2_data_fit_func * xray_trafo_op * linear_deform_op * displacement_op
 
@@ -1722,23 +1728,25 @@ kernelmatrix = gaussian_kernel_matrix(cptssapce.grid, sigma)
 shape_func = ShapeRegularizationFunctional(vspace, kernelmatrix)
 # grad_shape_func = shape_func._gradient(momenta)  # old method
 # grad_shape_func = shape_func._gradient_2dfft_zero_padding
-# (template, def_coeff, kernel)  ## fft method
+# (momenta, kernel)  ## fft method
 
 # Shape regularization parameter, nonnegtive
-lambda_shape = 0.00001
+lambda_shape = 0.001
 # Stepsize for iterations
-eta = 0.00025
+eta = 5.0
 # Iterations for updating alphas
-for i in range(1):
+for i in range(400):
     grad_shape_func = shape_func._gradient_2dfft_zero_padding(momenta, kernel)
     grad_data_fitting_term = data_fitting_term.gradient(momenta)
-    momenta -= eta * (2 * lambda_shape * grad_shape_func + grad_data_fitting_term)
-    print(i)
-    print(grad_shape_func)
-    print(grad_data_fitting_term)
-    print(momenta)
+    momenta -= eta * (
+        2 * lambda_shape * grad_shape_func + grad_data_fitting_term)
 
-    if (i+1) % 5 == 0:
+    if (i+1) % 200 == 0:
+        print(i)
+#        print(grad_shape_func)
+#        print(grad_data_fitting_term)
+#        print(momenta)
         displ = displacement_op(momenta)
+        print(displ)
         deformed_template = linear_deform_op(displ)  # deformed image
         deformed_template.show(title='Deformed template')
