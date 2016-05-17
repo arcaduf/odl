@@ -127,14 +127,20 @@ class NormProjectionOperator(odl.discr.tensor_ops.PointwiseTensorFieldOperator):
         return self.fn_norm(y.ntuple)
 
     def _proj_inf_norm(self, x):
-        # TODO: Shrinkage
+        # TODO: Shrinkage?
         raise NotImplementedError
 
-    def _proj_2_norm(self, x):
-        # TODO: Should be simple?
-        raise NotImplementedError
+    def _proj_2_norm(self, x, out):
+        x_norm = self._conj_exp_norm(x)
+        out[:] = x
+        if x_norm > 1:
+            out /= x_norm
 
     def _call(self, x, out):
+        if self.exponent == 2.0:
+            self._proj_2_norm(x, out)
+            return
+
         def cost(y):
             y_norm = self._conj_exp_norm(y)
             if y_norm > 1:
@@ -155,24 +161,39 @@ p = 1.0
 proj_op = NormProjectionOperator(spars_op.range, exponent=p)
 
 # Initialize the primal and dual variables. We need to choose something
-# that does not yield Gradient(primal) = 0 and dual = 0.
+# that does not yield Gradient(primal) = 0 and dual = 0 at the same time.
 primal = odl.util.phantom.submarine_phantom(spars_op.domain)
-dual = spars_op.range.zero()
+dual = spars_op(primal)
+
+spars_op_norm = odl.operator.oputils.power_method_opnorm(spars_op, 10, primal)
+print('factor from op norm: ', spars_op_norm)
+
+primal_dynrange = np.max(primal) - np.min(primal)
+dual_max = max(np.max(di) for di in dual)
+dual_min = min(np.min(di) for di in dual)
+dual_dynrange = dual_max - dual_min
+pd_scaling = dual_dynrange / primal_dynrange
+print('factor from dyn range: ', pd_scaling)
 
 
 # --- Run the algorithm --- #
 
-partial = odl.solvers.ShowPartial()
+partial = odl.solvers.ShowPartial(display_step=10)
 
 #odl.solvers.primal_dual_hybrid_gradient(
 #    fwd_op=odl.IdentityOperator(discr_space), data=noisy, primal=primal,
 #    dual=dual, spars_op=spars_op, proj_op=proj_op,
 #    pstep=0.5, dstep=0.000001, reg_param=400000, niter=20, callback=partial)
 
-reg_param = spars_op.domain.cell_volume * 0.5
+pstep_nominal = 0.5
+pstep = pstep_nominal
+dstep_nominal = 0.000001
+dstep = pd_scaling * dstep_nominal
+reg_param = spars_op.domain.cell_volume * 400000
+
 odl.solvers.primal_dual_hybrid_gradient(
     fwd_op=fwd_op, data=noisy, primal=primal, dual=dual, spars_op=spars_op,
-    proj_op=proj_op, pstep=0.2, dstep=0.1, reg_param=reg_param, niter=20,
+    proj_op=proj_op, pstep=pstep, dstep=dstep, reg_param=reg_param, niter=20,
     callback=partial, balance=True)
 
 # Display images
