@@ -27,8 +27,10 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import super
 
+import numpy as np
 import scipy as sp
 
+from odl.discr.tensor_ops import PointwiseNorm, PointwiseInner
 from odl.operator.operator import Operator
 from odl.operator.default_ops import IdentityOperator
 from odl.operator.pspace_ops import ProductSpaceOperator
@@ -37,7 +39,7 @@ from odl.space.pspace import ProductSpace
 
 __all__ = ('combine_proximals', 'proximal_zero', 'proximal_nonnegativity',
            'proximal_convexconjugate_l1', 'proximal_convexconjugate_l2',
-           'proximal_convexconjugate_kl')
+           'proximal_convexconjugate_kl', 'proximal_variable_lp')
 
 
 # TODO: remove diagonal op once available on master
@@ -481,6 +483,247 @@ def proximal_convexconjugate_kl(space, lam=1, g=None):
             out /= 2
 
     return _ProximalConvConjKL
+
+
+def proximal_variable_lp(space, exponent, lam=1.0):
+    """Return the proximal operator of the variable Lebesgue modular.
+
+    Parameters
+    ----------
+    space : `DiscreteLp` or power space of such
+        Space on which the proximal operator acts
+    exponent : ``space`` element-like or `float`
+        Variable (or constant) exponent used in the modular
+    lam : positive `float`
+        Global scaling factor in front of the modular
+
+    Notes
+    -----
+    The variable :math:`L^p` modular is the integral
+
+        :math:`\\rho_p(f) := \int_{\Omega}
+        \\lvert f(x) \\rvert^{p(x)}\, \mathrm{d}x`
+
+    for :math:`\Omega \subset \mathbb{R}^d`, a function
+    :math:`f:\Omega \\to \mathbb{R}^m` and an exponent mapping
+    :math:`p:\Omega \\to [0, \infty)`.
+    """
+
+    class VarLpModularProx(Operator):
+
+        """Proximal operator of the variable Lebesgue modular."""
+
+        def __init__(self, sigma):
+            """Initialize a new instance.
+
+            Parameters
+            ----------
+            sigma : positive `float`
+                Scaling parameter in the proximal operator
+
+            Notes
+            -----
+            The proximal operator of the variable :math:`L^p` modular
+            can be defined point-wise almost everywhere as
+
+                :math:`\mathrm{prox}_{\sigma \\rho_p}(f)(x)
+                = \mathrm{arg}\min_{v \\in \mathbb{R}^m}
+                \\left[\\lvert v \\rvert^{p(x)} + \\frac{1}{2\sigma}
+                \\lvert v - f(x) \\rvert^2 \\right]`.
+
+            For those :math:`x` where :math:`p(x) = 2`, we have
+
+                :math:`\mathrm{prox}_{\sigma \\rho_p}(f)(x)
+                = \\frac{f(x)}{1 + 2\sigma}`.
+
+            In points with :math:`p(x) = 1`, it is
+
+                :math:`\mathrm{prox}_{\sigma \\rho_p}(f)(x)
+                = \max\\left\{1 - \\frac{\sigma}{\\lvert f(x) \\rvert},
+                \, 0\\right\}\, f(x)`.
+
+            Otherwise, the minimization problem is solved by a Newton
+            method for p other than 1 or 2.
+            """
+            # TODO: check that we have a power space
+            super().__init__(domain=space, range=space, linear=False)
+            self.sigma = float(sigma)
+
+            if isinstance(self.domain, ProductSpace):
+                base_space = self.domain[0]
+            else:
+                base_space = self.domain
+
+            if np.isscalar(exponent):
+                self.exponent = float(exponent) * base_space.one()
+            else:
+                self.exponent = base_space.element(exponent)
+
+        def _call(self, f, out, **kwargs):
+            """Implement ``self(x, out, **kwargs)``.
+
+            Parameters
+            ----------
+            f : domain element
+                Element at which to evaluate the operator
+            out : range element
+                Element to which the result is written
+            max_newton_iter : `int`, optional
+                Maximum number of Newton iterations
+            """
+            if isinstance(self.domain, ProductSpace):
+                self._call_pspace(f, out, **kwargs)
+            else:
+                self._call_scalar(f, out, **kwargs)
+
+        def _call_scalar(self, f, out, **kwargs):
+            """Implement ``self(x, out, **kwargs)`` for scalar domain."""
+            exp_arr = self.exponent.asarray()
+            out_arr = out.asarray()
+
+            # p = 2
+            # This formula is used globally since it sets out to 0
+            # where f is 0 for the p = 1 case and acts as a starting
+            # value for the other case.
+            out.lincomb(0, out, 1.0 / (1.0 + 2.0 * self.sigma), f)
+
+            # p = 1
+            exp_1 = (exp_arr == 1.0)
+            f_arr = f.asarray()
+            f_nonzero = np.nonzero(f_arr[exp_1])
+            factor = np.maximum(
+                1.0 - self.sigma / np.abs(f_arr[exp_1][f_nonzero]),
+                0.0)
+            out_arr[exp_1][f_nonzero] = factor * f_arr[exp_1][f_nonzero]
+
+            # Newton iteration for other p values
+            exp_p = ~((exp_arr == 2.0) | exp_1)
+            v_p = out_arr[exp_p]
+            f_p = f.asarray()[exp_p]
+            exp_m2 = exp_arr[exp_p] - 2
+            exp_m4 = exp_arr[exp_p] - 4
+
+            # Create temporary arrays for |v|, <v, f>, alpha, beta and gamma
+            tmp_v_norm = self.domain.element().asarray()[exp_p]
+            tmp_v_inner_f = np.empty_like(tmp_v_norm)
+            tmp_alpha = np.empty_like(tmp_v_norm)
+            tmp_beta = np.empty_like(tmp_v_norm)
+            tmp_gamma = np.empty_like(tmp_v_norm)
+
+            maxiter = int(kwargs.pop('max_newton_iter', 5))
+            for _ in range(maxiter):
+                # Iteration:
+                # v_new = (alpha*gamma*|v|^2 - gamma/tau* <v,f>) * v +
+                #         f / (tau * alpha)
+
+                # Compute |v|
+                np.abs(v_p, out=tmp_v_norm)
+
+                # Compute <v, f> (multiplication)
+                np.multiply(v_p, f_p, out=tmp_v_inner_f)
+
+                # alpha = p * |v|**(p-2) + 1/sigma
+                np.power(tmp_v_norm, exp_m2, out=tmp_alpha)
+                tmp_alpha *= exp_arr[exp_p]
+                tmp_alpha += 1 / self.sigma
+
+                # beta = p * (p-2) * |v|**(p-4)
+                np.power(tmp_v_norm, exp_m4, out=tmp_beta)
+                tmp_beta *= exp_arr[exp_p] * exp_m2
+
+                # gamma = beta / (alpha * (alpha + beta * |v|**2))
+                np.divide(tmp_beta, tmp_alpha, out=tmp_gamma)
+                tmp_gamma /= tmp_alpha + tmp_beta * tmp_v_norm ** 2
+
+                # Update the iterate
+                v_p *= (tmp_alpha * tmp_gamma * tmp_v_norm ** 2 -
+                        tmp_gamma * tmp_v_inner_f)
+                v_p += f_p / (self.sigma * tmp_alpha)
+
+            out_arr[exp_p] = v_p
+            out[:] = out_arr
+
+        def _call_pspace(self, f, out, **kwargs):
+            """Implement ``self(x, out, **kwargs)`` for vectorial domain."""
+            exp_arr = self.exponent.asarray()
+            base_space = self.domain[0]
+
+            # p = 2
+            # This formula is used globally since it sets out to 0
+            # where f is 0 for the p = 1 case and acts as a starting
+            # value for the other case.
+            out.lincomb(0, out, 1.0 / (1.0 + 2.0 * self.sigma), f)
+
+            # p = 1
+            exp_1 = (exp_arr == 1.0)
+            for fi, oi in f, out:
+                fi_arr = fi.asarray()
+                oi_arr = oi.asarray()
+                fi_nonzero = np.nonzero(fi_arr[exp_1])
+                factor = np.maximum(
+                    1.0 - self.sigma / np.abs(fi_arr[exp_1][fi_nonzero]),
+                    0.0)
+                oi_arr[exp_1][fi_nonzero] = factor * fi_arr[exp_1][fi_nonzero]
+
+            # Newton iteration for other p values
+            exp_p = ~((exp_arr == 2.0) | exp_1)
+            v_p = [oi.asarray()[exp_p] for oi in out]
+            f_p = [fi.asarray()[exp_p] for fi in f]
+            exp_m2 = exp_arr[exp_p] - 2
+            exp_m4 = exp_arr[exp_p] - 4
+
+            # Create temporary arrays for |v|, <v, f>, alpha, beta and gamma
+            tmp_v_norm = base_space.element().asarray()[exp_p]
+            tmp_v_inner_f = np.empty_like(tmp_v_norm)
+            tmp_alpha = np.empty_like(tmp_v_norm)
+            tmp_beta = np.empty_like(tmp_v_norm)
+            tmp_gamma = np.empty_like(tmp_v_norm)
+            tmp = np.empty_like(tmp_v_norm)
+
+            maxiter = int(kwargs.pop('max_newton_iter', 5))
+            for _ in range(maxiter):
+                # Iteration:
+                # v_new = (alpha*gamma*|v|^2 - gamma/tau* <v,f>) * v +
+                #         f / (tau * alpha)
+
+                # Compute |v|
+                np.square(v_p[0], out=tmp_v_norm)
+                for vi in v_p[1:]:
+                    np.square(vi, out=tmp)
+                    tmp_v_norm += tmp
+                np.sqrt(tmp_v_norm, out=tmp_v_norm)
+
+                # Compute <v, f> (multiplication)
+                np.multiply(v_p[0], f_p[0], out=tmp_v_inner_f)
+                for vi, fi in zip(v_p[1:], f_p[1:]):
+                    np.multiply(vi, fi, out=tmp)
+                    tmp_v_inner_f += tmp
+
+                # alpha = p * |v|**(p-2) + 1/sigma
+                np.power(tmp_v_norm, exp_m2, out=tmp_alpha)
+                tmp_alpha *= exp_arr[exp_p]
+                tmp_alpha += 1 / self.sigma
+
+                # beta = p * (p-2) * |v|**(p-4)
+                np.power(tmp_v_norm, exp_m4, out=tmp_beta)
+                tmp_beta *= exp_arr[exp_p] * exp_m2
+
+                # gamma = beta / (alpha * (alpha + beta * |v|**2))
+                np.divide(tmp_beta, tmp_alpha, out=tmp_gamma)
+                tmp_gamma /= tmp_alpha + tmp_beta * tmp_v_norm ** 2
+
+                # Update the iterate
+                for vi, fi in zip(v_p, f_p):
+                    vi *= (tmp_alpha * tmp_gamma * tmp_v_norm ** 2 -
+                           tmp_gamma * tmp_v_inner_f)
+                    vi += fi / (self.sigma * tmp_alpha)
+
+            for oi, vi in zip(out, v_p):
+                oi_arr = oi.asarray()
+                oi_arr[exp_p] = vi
+                oi[:] = oi_arr
+
+    return VarLpModularProx
 
 
 if __name__ == '__main__':
