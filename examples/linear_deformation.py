@@ -938,7 +938,7 @@ class DisplacementOperator(Operator):
     element of ``R^n``, can be seen as the momenta alpha at control point y_j.
     """
 
-    def __init__(self, par_space, control_points, discr_space, kernel):
+    def __init__(self, par_space, control_points, discr_space, ft_kernel):
         """Initialize a new instance.
 
         Parameters
@@ -984,11 +984,7 @@ class DisplacementOperator(Operator):
 
         super().__init__(par_space, self.range_space, linear=True)
 
-        if not callable(kernel):
-            raise TypeError('kernel function {!r} is not callable.'
-                            ''.format(kernel))
-
-        self.kernel = kernel
+        self.ft_kernel = ft_kernel
 
         if not isinstance(control_points, odl.TensorGrid):
             self._control_pts = np.asarray(control_points)
@@ -1030,32 +1026,32 @@ class DisplacementOperator(Operator):
         """Spatial sampling grid of the image space."""
         return discr_space.grid
 
-    def kernel_2dfft_zero_padding(self):
-        """Compute the 2D Fourier transform of the discrete kernel ``K``.
-
-        Calculate the 2D Fourier transform of the discrete kernel ``K`` on the
-        grid points {y_i} to its reciprocal points {xi_i}.
-
-        """
-        kspace = odl.ProductSpace(discr_space, 2)
-
-        # Create the array of kernel values on the grid points
-        discretized_kernel1 = discr_space.element(self.kernel)
-        discretized_kernel2 = discr_space.element(self.kernel)
-        discretized_kernel = kspace.element([discretized_kernel1,
-                                             discretized_kernel2])
-
-        padding_op = odl.ZeroPaddingOperator(discr_space, [1, 1])
-        shifts = [not s % 2 for s in discr_space.shape]
-
-        ft_op = odl.trafos.FourierTransform(
-            padding_op.range, halfcomplex=False, shift=shifts)
-
-        padded_ft_op = ft_op * padding_op
-        vectorial_ft_op = odl.ProductSpaceOperator([[padded_ft_op, 0],
-                                                    [0, padded_ft_op]])
-        ft_kernel = vectorial_ft_op(discretized_kernel)
-        return ft_kernel
+#    def kernel_2dfft_zero_padding(self):
+#        """Compute the 2D Fourier transform of the discrete kernel ``K``.
+#
+#        Calculate the 2D Fourier transform of the discrete kernel ``K`` on the
+#        grid points {y_i} to its reciprocal points {xi_i}.
+#
+#        """
+#        kspace = odl.ProductSpace(discr_space, 2)
+#
+#        # Create the array of kernel values on the grid points
+#        discretized_kernel1 = discr_space.element(self.kernel)
+#        discretized_kernel2 = discr_space.element(self.kernel)
+#        discretized_kernel = kspace.element([discretized_kernel1,
+#                                             discretized_kernel2])
+#
+#        padding_op = odl.ZeroPaddingOperator(discr_space, [1, 1])
+#        shifts = [not s % 2 for s in discr_space.shape]
+#
+#        ft_op = odl.trafos.FourierTransform(
+#            padding_op.range, halfcomplex=False, shift=shifts)
+#
+#        padded_ft_op = ft_op * padding_op
+#        vectorial_ft_op = odl.ProductSpaceOperator([[padded_ft_op, 0],
+#                                                    [0, padded_ft_op]])
+#        ft_kernel = vectorial_ft_op(discretized_kernel)
+#        return ft_kernel
 
     def displacement_2dfft_zero_padding(self, alphas):
         """Calculate the inverse translation at point y by 2D FFT.
@@ -1086,7 +1082,7 @@ class DisplacementOperator(Operator):
              [0, padded_ft_op.inverse]])
 
         ft_momenta = vectorial_ft_op(alphas)
-        ft_displacement = self.kernel_2dfft_zero_padding() * ft_momenta
+        ft_displacement = self.ft_kernel * ft_momenta
         return vectorial_ft_op_inverse(ft_displacement)
         # scaling
 #        return (vectorial_ft_op_inverse(ft_displacement) /
@@ -1126,7 +1122,7 @@ class DisplacementOperator(Operator):
             The derivative of this operator, evaluated at ``alphas``
         """
         deriv_op = DisplacementDerivative(
-            alphas, self.control_points, self.discr_space, self.kernel)
+            alphas, self.control_points, self.discr_space, self.ft_kernel)
 
         return deriv_op
 
@@ -1135,7 +1131,7 @@ class DisplacementDerivative(DisplacementOperator):
 
     """Frechet derivative of the displacement operator at alphas."""
 
-    def __init__(self, alphas, control_points, discr_space, kernel):
+    def __init__(self, alphas, control_points, discr_space, ft_kernel):
         """Initialize a new instance.
 
         Parameters
@@ -1156,7 +1152,7 @@ class DisplacementDerivative(DisplacementOperator):
             The function must accept a real variable and return a real number.
         """
 
-        super().__init__(alphas.space, control_points, discr_space, kernel)
+        super().__init__(alphas.space, control_points, discr_space, ft_kernel)
         self.discr_space = discr_space
         self.range_space = odl.ProductSpace(self.discr_space,
                                             self.discr_space.ndim)
@@ -1181,7 +1177,7 @@ class DisplacementDerivative(DisplacementOperator):
     def adjoint(self):
         """Adjoint of the displacement derivative."""
         adj_op = DisplacementDerivativeAdjoint(
-            self.alphas, self.control_points, self.discr_space, self.kernel)
+            self.alphas, self.control_points, self.discr_space, self.ft_kernel)
 
         return adj_op
 
@@ -1190,7 +1186,7 @@ class DisplacementDerivativeAdjoint(DisplacementDerivative):
 
     """Adjoint of the Displacement operator derivative.
     """
-    def __init__(self, alphas, control_points, discr_space, kernel):
+    def __init__(self, alphas, control_points, discr_space, ft_kernel):
         """Initialize a new instance.
 
         Parameters
@@ -1211,7 +1207,7 @@ class DisplacementDerivativeAdjoint(DisplacementDerivative):
             The function must accept a real variable and return a real number.
         """
 
-        super().__init__(alphas, control_points, discr_space, kernel)
+        super().__init__(alphas, control_points, discr_space, ft_kernel)
 
         # Switch domain and range
         self._domain, self._range = self._range, self._domain
@@ -1472,7 +1468,7 @@ class ShapeRegularizationFunctional(Operator):
         return self.domain.element([self._kernel_op(np.asarray(a).reshape(-1))
                                     for a in alphas])
 
-    def _gradient_2dfft_zero_padding(self, alphas, kernel):
+    def _gradient_2dfft_zero_padding(self, ft_momenta, ft_kernel):
         """Return the gradient at ``alphas``.
 
         The gradient of the functional is given by
@@ -1481,33 +1477,8 @@ class ShapeRegularizationFunctional(Operator):
 
         This is used for the 2D case: control grid = image grid.
         """
-        padding_op = odl.ZeroPaddingOperator(self.par_space[0], [1, 1])
-        shifts = [not s % 2 for s in self.par_space[0].shape]
-
-        ft_op = odl.trafos.FourierTransform(
-            padding_op.range, halfcomplex=False, shift=shifts)
-
-        padded_ft_op = ft_op * padding_op
-        vectorial_ft_op = odl.ProductSpaceOperator([[padded_ft_op, 0],
-                                                    [0, padded_ft_op]])
-
-        vectorial_ft_op_inverse = odl.ProductSpaceOperator(
-            [[padded_ft_op.inverse, 0],
-             [0, padded_ft_op.inverse]])
-
-        ft_momenta = vectorial_ft_op(alphas)
-
-        kspace = self.par_space
-
-        # Create the array of kernel values on the grid points
-        discretized_kernel1 = self.par_space[0].element(kernel)
-        discretized_kernel2 = self.par_space[0].element(kernel)
-        discretized_kernel = kspace.element([discretized_kernel1,
-                                             discretized_kernel2])
-
-        ft_kernel = vectorial_ft_op(discretized_kernel)
         ft_displacement = ft_kernel * ft_momenta
-        return vectorial_ft_op_inverse(ft_displacement)
+        return ft_displacement
 #        return (vectorial_ft_op_inverse(ft_displacement) /
 #                self.par_space[0].cell_volume * 2.0 * np.pi)
 
@@ -1715,12 +1686,75 @@ noise_proj_data = proj_data + noise
 backproj = xray_trafo_op.adjoint(noise_proj_data)
 backproj.show('backprojection')
 
+# FFT setting for shape
+padding_op = odl.ZeroPaddingOperator(vspace[0], [1, 1])
+shifts = [not s % 2 for s in vspace[0].shape]
+
+ft_op = odl.trafos.FourierTransform(
+    padding_op.range, halfcomplex=False, shift=shifts)
+
+padded_ft_op = ft_op * padding_op
+vectorial_ft_op = odl.ProductSpaceOperator([[padded_ft_op, 0],
+                                            [0, padded_ft_op]])
+
+vectorial_ft_op_inverse = odl.ProductSpaceOperator([[padded_ft_op.inverse, 0],
+                                                    [0, padded_ft_op.inverse]])
+
+
+def shape_kernel_2dfft_zero_padding(kernel):
+    """Compute the 2D Fourier transform of the discrete kernel ``K``.
+
+    Calculate the 2D Fourier transform of the discrete kernel ``K`` on the
+    control grid points {y_i} to its reciprocal points {xi_i}.
+
+    """
+
+    # Create the array of kernel values on the grid points
+    discretized_kernel1 = vspace[0].element(kernel)
+    discretized_kernel2 = vspace[0].element(kernel)
+    discretized_kernel = vspace.element([discretized_kernel1,
+                                         discretized_kernel2])
+
+    ft_kernel = vectorial_ft_op(discretized_kernel)
+    return ft_kernel
+
+
+def fitting_kernel_2dfft_zero_padding(kernel):
+    """Compute the 2D Fourier transform of the discrete kernel ``K``.
+
+    Calculate the 2D Fourier transform of the discrete kernel ``K`` on the
+    image grid points {y_i} to its reciprocal points {xi_i}.
+
+    """
+    kspace = odl.ProductSpace(discr_space, 2)
+
+    # Create the array of kernel values on the grid points
+    discretized_kernel1 = discr_space.element(kernel)
+    discretized_kernel2 = discr_space.element(kernel)
+    discretized_kernel = kspace.element([discretized_kernel1,
+                                         discretized_kernel2])
+
+    padding_op = odl.ZeroPaddingOperator(discr_space, [1, 1])
+    shifts = [not s % 2 for s in discr_space.shape]
+
+    ft_op = odl.trafos.FourierTransform(
+        padding_op.range, halfcomplex=False, shift=shifts)
+
+    padded_ft_op = ft_op * padding_op
+    vectorial_ft_op = odl.ProductSpaceOperator([[padded_ft_op, 0],
+                                                [0, padded_ft_op]])
+    ft_kernel = vectorial_ft_op(discretized_kernel)
+    return ft_kernel
+
 # Create and initialize deformation field
 # Define the momenta and set it to zeroes or ones for test
 momenta = vspace.zero()
 
+ft_kernel_fitting = fitting_kernel_2dfft_zero_padding(kernel)
+ft_kernel_shape = shape_kernel_2dfft_zero_padding(kernel)
+
 displacement_op = DisplacementOperator(vspace, cptssapce.grid,
-                                       discr_space, kernel)
+                                       discr_space, ft_kernel_fitting)
 displ = displacement_op(momenta)
 
 
@@ -1748,7 +1782,9 @@ lambda_shape = 0.0001
 eta = 50.0
 # Iterations for updating alphas
 for i in range(2000):
-    grad_shape_func = shape_func._gradient_2dfft_zero_padding(momenta, kernel)
+    ft_momenta = vectorial_ft_op(momenta)
+    grad_shape_func = vectorial_ft_op_inverse(
+        shape_func._gradient_2dfft_zero_padding(ft_momenta, ft_kernel_shape))
     grad_data_fitting_term = data_fitting_term.gradient(momenta)
     momenta -= eta * (
         2 * lambda_shape * grad_shape_func + grad_data_fitting_term)
