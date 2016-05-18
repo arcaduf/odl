@@ -1641,12 +1641,12 @@ class FittingTermFunctional(Functional):
 sigma = 0.2
 
 
-# kernel function for any dimensional
+# Kernel function for any dimensional
 def gauss_kernel(x, sigma):
     return np.exp(-x ** 2 / (2 * sigma ** 2))
 
 
-# kernel function
+# Kernel function
 def kernel(x):
     scaled = [xi ** 2 / (2 * sigma ** 2) for xi in x]
     return np.exp(-sum(scaled))
@@ -1654,9 +1654,18 @@ def kernel(x):
 kernel1 = partial(gauss_kernel, sigma=sigma)
 
 
-# produce noise for projections of 2D images
+# Produce noise for projections of 2D images
 def proj_noise(x, y, mu=0.0, sigma=1.0):
     return sigma * np.random.rand(x, y) + mu
+
+
+# Compute Signal-to-Noise Ratio
+def SNR(signal, noise):
+    ave1 = np.sum(signal)/signal.size
+    ave2 = np.sum(noise)/noise.size
+    en1 = np.sqrt(np.sum((signal - ave1) * (signal - ave1)))
+    en2 = np.sqrt(np.sum((noise - ave2) * (noise - ave2)))
+    return 10.0 * np.log10(en1/en2)
 
 # Discretization of the space
 m = 101  # Number of gridpoints for discretization
@@ -1682,7 +1691,7 @@ detector_partition = odl.uniform_partition(-0.75, 0.75, 151)
 
 # Create projection directions
 angle_interval = odl.Interval(0, np.pi)
-angle_grid = odl.TensorGrid([0, np.pi/4, np.pi/2])
+angle_grid = odl.TensorGrid([0, np.pi/6, np.pi/3, np.pi/2, np.pi*2/3, np.pi*5/6])
 angle_partition = odl.RectPartition(angle_interval, angle_grid)
 
 # Create 2D parallel projection geometry
@@ -1693,15 +1702,18 @@ xray_trafo_op = odl.tomo.RayTransform(discr_space, geometry, impl='astra_cuda')
 proj_data = xray_trafo_op(target)
 
 # Create white Gaussian noise
-noise = proj_data.space.element(proj_noise(proj_data.shape[0],
-                                           proj_data.shape[1]))
+noise = 0.1 * proj_data.space.element(proj_noise(proj_data.shape[0],
+                                                 proj_data.shape[1]))
+
+# Compute Signal-to-Noise Ratio
+print(SNR(proj_data, noise))
 
 # Create noisy projections, noise ~ (0, 0.1)
-noise_proj_data = proj_data + 0.1 * noise
+noise_proj_data = proj_data + noise
 
 # proj_data_template = xray_trafo_op(template)
-# backproj = xray_trafo_op.adjoint(proj_data_template-noise_proj_data)
-# backproj.show('backproj')
+backproj = xray_trafo_op.adjoint(noise_proj_data)
+backproj.show('backprojection')
 
 # Create and initialize deformation field
 # Define the momenta and set it to zeroes or ones for test
@@ -1731,17 +1743,17 @@ shape_func = ShapeRegularizationFunctional(vspace, kernelmatrix)
 # (momenta, kernel)  ## fft method
 
 # Shape regularization parameter, nonnegtive
-lambda_shape = 0.001
+lambda_shape = 0.0001
 # Stepsize for iterations
-eta = 5.0
+eta = 50.0
 # Iterations for updating alphas
-for i in range(400):
+for i in range(2000):
     grad_shape_func = shape_func._gradient_2dfft_zero_padding(momenta, kernel)
     grad_data_fitting_term = data_fitting_term.gradient(momenta)
     momenta -= eta * (
         2 * lambda_shape * grad_shape_func + grad_data_fitting_term)
 
-    if (i+1) % 200 == 0:
+    if (i+1) % 500 == 0:
         print(i)
 #        print(grad_shape_func)
 #        print(grad_data_fitting_term)
