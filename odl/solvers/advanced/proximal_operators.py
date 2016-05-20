@@ -885,7 +885,7 @@ def proximal_convexconjugate_kl(space, lam=1, g=None):
     return _ProximalConvConjKL
 
 
-def proximal_variable_lp(space, exponent, lam=1.0):
+def proximal_variable_lp(space, exponent, lam=1.0, g=None):
     """Return the proximal operator of the variable Lebesgue modular.
 
     Parameters
@@ -895,7 +895,9 @@ def proximal_variable_lp(space, exponent, lam=1.0):
     exponent : ``space`` element-like or `float`
         Variable (or constant) exponent used in the modular
     lam : positive `float`
-        Global scaling factor in front of the modular
+        Scaling factor or regularization parameter
+    g : ``space`` element-like
+        An element in ``space``
 
     Notes
     -----
@@ -907,6 +909,9 @@ def proximal_variable_lp(space, exponent, lam=1.0):
     for :math:`\Omega \subset \mathbb{R}^d`, a function
     :math:`f:\Omega \\to \mathbb{R}^m` and an exponent mapping
     :math:`p:\Omega \\to [0, \infty)`.
+    In this functional, an additional element :math:`g` can be
+    specified, such that instead of :math:`f`, the difference
+    :math:`f - g` is considered.
     """
 
     class VarLpModularProx(Operator):
@@ -959,6 +964,11 @@ def proximal_variable_lp(space, exponent, lam=1.0):
             else:
                 self.exponent = base_space.element(exponent)
 
+            if g is not None:
+                self.g = self.domain.element(g)
+            else:
+                self.g = None
+
         def _call(self, f, out, **kwargs):
             """Implement ``self(x, out, **kwargs)``.
 
@@ -978,6 +988,9 @@ def proximal_variable_lp(space, exponent, lam=1.0):
 
         def _call_scalar(self, f, out, **kwargs):
             """Implement ``self(x, out, **kwargs)`` for scalar domain."""
+            if self.g is not None:
+                f = f - self.g
+
             exp_arr = self.exponent.asarray()
             out_arr = out.asarray()
 
@@ -1043,8 +1056,14 @@ def proximal_variable_lp(space, exponent, lam=1.0):
             out_arr[exp_p] = v_p
             out[:] = out_arr
 
+            if self.g is not None:
+                out += self.g
+
         def _call_pspace(self, f, out, **kwargs):
             """Implement ``self(x, out, **kwargs)`` for vectorial domain."""
+            if self.g is not None:
+                f = f - self.g
+
             exp_arr = self.exponent.asarray()
             base_space = self.domain[0]
 
@@ -1122,6 +1141,9 @@ def proximal_variable_lp(space, exponent, lam=1.0):
                 oi_arr = oi.asarray()
                 oi_arr[exp_p] = vi
                 oi[:] = oi_arr
+
+            if self.g is not None:
+                out += self.g
 
     return VarLpModularProx
 
