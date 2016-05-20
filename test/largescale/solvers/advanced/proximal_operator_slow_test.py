@@ -95,28 +95,6 @@ class VariableLpModular(odl.solvers.Functional):
 
             return fin_term + inf_term
 
-    def gradient(self, f, out=None):
-        """Evaluate the gradient in ``x``.
-
-        The gradient is given as
-
-            ``grad S(f) = p * |f|^(p - 2) * f``
-
-        in the sense of point-wise operations.
-        """
-        if not self._all_finite:
-            raise NotImplementedError('gradient not well-defined for infinite '
-                                      'exponent.')
-        if out is None:
-            out = self.domain.element()
-
-        f.ufunc.absolute(out=out)
-        out.ufunc.power(self.var_exp - 2, out=out)
-        out.asarray()[np.isnan(out.asarray())] = 0  # Handle NaN
-        out *= f
-        out *= self.var_exp
-        return out
-
 
 step_params = [0.1, 1.0, 10.0]
 step_ids = [' stepsize = {} '.format(p) for p in step_params]
