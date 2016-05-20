@@ -30,7 +30,8 @@ import pytest
 import odl
 from odl.solvers.advanced.proximal_operators import (
     combine_proximals, proximal_zero, proximal_nonnegativity,
-    proximal_convexconjugate_l1, proximal_convexconjugate_l2,
+    proximal_l1, proximal_convexconjugate_l1,
+    proximal_l2_squared, proximal_convexconjugate_l2_squared,
     proximal_convexconjugate_kl)
 from odl.util.testutils import all_almost_equal
 
@@ -80,7 +81,7 @@ def test_proximal_nonnegativity():
     make_prox = proximal_nonnegativity(space)
 
     # Initialize proximal operator of G (with an unused parameter)
-    prox = make_prox(None)
+    prox = make_prox(1.0)
 
     # Optimal point returned by the proximal operator
     prox(x, out)
@@ -131,7 +132,7 @@ def test_combine_proximal():
     assert out == x
 
 
-def test_proximal_factory_convconj_l2_wo_data():
+def test_proximal_factory_convconj_l2_sq_wo_data():
     """Proximal factory for the convex conjugate of the L2-norm."""
 
     # Image space
@@ -142,7 +143,7 @@ def test_proximal_factory_convconj_l2_wo_data():
 
     # Factory function returning the proximal operator
     lam = 2
-    make_prox = proximal_convexconjugate_l2(space, lam=lam)
+    make_prox = proximal_convexconjugate_l2_squared(space, lam=lam)
 
     # Initialize the proximal operator
     sigma = 0.5
@@ -162,7 +163,7 @@ def test_proximal_factory_convconj_l2_wo_data():
     assert all_almost_equal(x_opt, x_verify, PLACES)
 
 
-def test_proximal_factory_convconj_l2_with_data():
+def test_proximal_factory_convconj_l2_sq_with_data():
     """Proximal factory for the convex conjugate of the L2-norm."""
 
     # Image space
@@ -177,7 +178,7 @@ def test_proximal_factory_convconj_l2_with_data():
 
     # Factory function returning the proximal operator
     lam = 2
-    make_prox = proximal_convexconjugate_l2(space, lam=lam, g=g)
+    make_prox = proximal_convexconjugate_l2_squared(space, lam=lam, g=g)
 
     # Initialize the proximal operator
     sigma = 0.5

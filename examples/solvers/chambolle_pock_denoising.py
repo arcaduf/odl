@@ -97,12 +97,13 @@ print('Norm of the product space operator: {}'.format(prod_op_norm))
 # Proximal operators related to the dual variable
 
 # l2-data matching
-prox_convconj_l2 = odl.solvers.proximal_convexconjugate_l2(discr_space,
-                                                           lam=1, g=noisy)
+prox_convconj_l2 = odl.solvers.proximal_convexconjugate_l2_squared(discr_space,
+                                                                   lam=1,
+                                                                   g=noisy)
 
 # TV-regularization: l1-semi norm of grad(x)
 prox_convconj_l1 = odl.solvers.proximal_convexconjugate_l1(gradient.range,
-                                                           lam=1/16)
+                                                           lam=1/16.0)
 
 # Combine proximal operators: the order must match the order of operators in K
 proximal_dual = odl.solvers.combine_proximals([prox_convconj_l2,
