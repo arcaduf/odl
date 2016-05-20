@@ -1004,10 +1004,11 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
             exp_1 = (exp_arr == 1.0)
             f_arr = f.asarray()
             f_nonzero = np.nonzero(f_arr[exp_1])
+            out_arr_1 = out_arr[exp_1]
             factor = np.maximum(
-                1.0 - self.sigma / np.abs(f_arr[exp_1][f_nonzero]),
-                0.0)
-            out_arr[exp_1][f_nonzero] = factor * f_arr[exp_1][f_nonzero]
+                1.0 - self.sigma / np.abs(f_arr[exp_1][f_nonzero]), 0.0)
+            out_arr_1[f_nonzero] = factor * f_arr[exp_1][f_nonzero]
+            out_arr[exp_1] = out_arr_1
 
             # Newton iteration for other p values
             exp_p = ~((exp_arr == 2.0) | exp_1)
@@ -1050,7 +1051,7 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
 
                 # Update the iterate
                 v_p *= (tmp_alpha * tmp_gamma * tmp_v_norm ** 2 -
-                        tmp_gamma * tmp_v_inner_f)
+                        tmp_gamma * tmp_v_inner_f / self.sigma)
                 v_p += f_p / (self.sigma * tmp_alpha)
 
             out_arr[exp_p] = v_p
@@ -1078,11 +1079,13 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
             for fi, oi in f, out:
                 fi_arr = fi.asarray()
                 oi_arr = oi.asarray()
+                oi_arr_1 = oi_arr[exp_1]
                 fi_nonzero = np.nonzero(fi_arr[exp_1])
                 factor = np.maximum(
                     1.0 - self.sigma / np.abs(fi_arr[exp_1][fi_nonzero]),
                     0.0)
-                oi_arr[exp_1][fi_nonzero] = factor * fi_arr[exp_1][fi_nonzero]
+                oi_arr_1[fi_nonzero] = factor * fi_arr[exp_1][fi_nonzero]
+                oi_arr[exp_1] = oi_arr_1
 
             # Newton iteration for other p values
             exp_p = ~((exp_arr == 2.0) | exp_1)
@@ -1134,7 +1137,7 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
                 # Update the iterate
                 for vi, fi in zip(v_p, f_p):
                     vi *= (tmp_alpha * tmp_gamma * tmp_v_norm ** 2 -
-                           tmp_gamma * tmp_v_inner_f)
+                           tmp_gamma * tmp_v_inner_f / self.sigma)
                     vi += fi / (self.sigma * tmp_alpha)
 
             for oi, vi in zip(out, v_p):

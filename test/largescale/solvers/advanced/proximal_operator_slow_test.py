@@ -33,11 +33,89 @@ from odl.solvers.advanced.proximal_operators import (
     proximal_l1, proximal_convexconjugate_l1,
     proximal_l2, proximal_convexconjugate_l2,
     proximal_l2_squared, proximal_convexconjugate_l2_squared,
-    proximal_convexconjugate_kl)
+    proximal_convexconjugate_kl, proximal_variable_lp)
 from odl.util.testutils import example_element
 
 
 pytestmark = odl.util.skip_if_no_largescale
+
+
+class VariableLpModular(odl.solvers.Functional):
+
+    """Functional for evaluating the variable Lp modular.
+
+    The variable Lp modular is defined as
+
+        ``S(f) = integral( |f(x)|^(p(x)) dx ) + ||f_inf||_inf``
+
+    where ``f_inf`` is the restriction of ``f`` to the set where
+    ``p = inf`` and the integral is taken over the set where ``p``
+    is finite.
+
+    It maps a real-valued function on Omega to the real numbers.
+    The exponent function is expected to be fulfill
+    ``1 <= p(x) <= inf`` everywhere.
+    """
+
+    def __init__(self, space, var_exp):
+        """Initialize a new instance.
+
+        Parameters
+        ----------
+        space : `DiscreteLp`
+            Discretized function space on which the modular is defined
+        var_exp : scalar-valued ``space`` `element-like`
+            The variable exponent ``p(x)``
+        """
+        super().__init__(space, linear=False)
+        self.var_exp = self.domain.element(var_exp)
+        self._var_exp_flat = self.var_exp.asarray().ravel()
+        self._fin_idcs = np.where(np.isfinite(self._var_exp_flat))
+        self._inf_idcs = np.where(np.isinf(self._var_exp_flat))
+        self._all_finite = (self._inf_idcs[0].size == 0)
+
+    def _call(self, f):
+        """Return ``self(f)``."""
+        if self._all_finite:
+            tmp = np.power(np.abs(f), self.var_exp)
+            return self.domain.inner(tmp, self.domain.one())
+
+        else:
+            # Integral part
+            tmp = self.domain.zero()
+            absf = np.abs(f)
+            tmp[self._fin_idcs] = np.power(absf[self._fin_idcs],
+                                           self.var_exp[self._fin_idcs])
+            fin_term = self.domain.inner(tmp, self.domain.one())
+
+            # Inf part
+            tmp[:] = 0
+            tmp[self._inf_idcs] = absf[self._inf_idcs]
+            inf_term = np.amax(tmp)
+
+            return fin_term + inf_term
+
+    def gradient(self, f, out=None):
+        """Evaluate the gradient in ``x``.
+
+        The gradient is given as
+
+            ``grad S(f) = p * |f|^(p - 2) * f``
+
+        in the sense of point-wise operations.
+        """
+        if not self._all_finite:
+            raise NotImplementedError('gradient not well-defined for infinite '
+                                      'exponent.')
+        if out is None:
+            out = self.domain.element()
+
+        f.ufunc.absolute(out=out)
+        out.ufunc.power(self.var_exp - 2, out=out)
+        out.asarray()[np.isnan(out.asarray())] = 0  # Handle NaN
+        out *= f
+        out *= self.var_exp
+        return out
 
 
 step_params = [0.1, 1.0, 10.0]
@@ -60,7 +138,8 @@ def offset(request):
 
 prox_params = ['l1 ', 'l1_dual',
                'l2', 'l2_dual',
-               'l2^2', 'l2^2_dual']
+               'l2^2', 'l2^2_dual',
+               'var_lp_mod']
 prox_ids = [' f = {}'.format(p.ljust(10)) for p in prox_params]
 
 
@@ -125,6 +204,14 @@ def proximal_and_function(request):
         prox = proximal_convexconjugate_l2_squared(space)
 
         return prox, l2_norm_squared
+
+    elif name == 'var_lp_mod':
+        exponent = np.random.uniform(1, 2, space.shape)
+        exponent[exponent <= 1.01] = 1.0
+        exponent[exponent >= 1.99] = 2.0
+        var_lp_mod = VariableLpModular(space, exponent)
+        prox = proximal_variable_lp(space, exponent)
+        return prox, var_lp_mod
 
     else:
         assert False
