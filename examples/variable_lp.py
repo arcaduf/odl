@@ -66,11 +66,11 @@ class L2DataMatchingFunctional(odl.solvers.Functional):
         return self.gradient(x).T
 
 
-class VariableLpModulus(odl.solvers.Functional):
+class VariableLpModular(odl.solvers.Functional):
 
-    """Functional for evaluating the variable Lp modulus.
+    """Functional for evaluating the variable Lp modular.
 
-    The variable Lp modulus is defined as
+    The variable Lp modular is defined as
 
         ``S(f) = integral( |f(x)|^(p(x)) dx ) + ||f_inf||_inf``
 
@@ -89,7 +89,7 @@ class VariableLpModulus(odl.solvers.Functional):
         Parameters
         ----------
         space : `DiscreteLp`
-            Discretized function space on which the modulus is defined
+            Discretized function space on which the modular is defined
         var_exp : scalar-valued ``space`` `element-like`
             The variable exponent ``p(x)``
         """
@@ -152,7 +152,7 @@ class VariableLpNorm(odl.solvers.Functional):
 
         ``||f||_p = inf{s > 0 | rho_p(f / s) <= 1}``
 
-    where ``rho_p`` is the variable Lp modulus. Starting from the
+    where ``rho_p`` is the variable Lp modular. Starting from the
     initial guess ``s = rho_p(f)``, a bisection method is used to
     determine the optimal ``s``.
     """
@@ -163,14 +163,14 @@ class VariableLpNorm(odl.solvers.Functional):
         Parameters
         ----------
         space : `DiscreteLp`
-            Discretized function space on which the modulus is defined
+            Discretized function space on which the modular is defined
         var_exp : scalar-valued ``space`` `element-like`
             The variable exponent ``p(x)``
         """
         super().__init__(space, linear=False)
         self.var_exp = self.domain.element(var_exp)
         self._min_exp = np.min(self.var_exp)
-        self.modulus = VariableLpModulus(space, var_exp)
+        self.modular = VariableLpModular(space, var_exp)
 
     def _call(self, f, **kwargs):
         """Return ``self(f)``.
@@ -189,11 +189,11 @@ class VariableLpNorm(odl.solvers.Functional):
         atol = kwargs.pop('atol', 0.01)
         maxiter = kwargs.pop('maxiter', 10)
 
-        s = self.modulus(f)
+        s = self.modular(f)
         if s == 0:
             return 0.0
 
-        m = self.modulus(f / s)
+        m = self.modular(f / s)
         if abs(m - 1) <= atol:
             return s
         elif m < 1:
@@ -207,7 +207,7 @@ class VariableLpNorm(odl.solvers.Functional):
         it = 0
         while True:
             s *= fac
-            m = self.modulus(f / s)
+            m = self.modular(f / s)
             it += 1
             if np.sign(m - 1) != np.sign(m_old - 1):
                 break
@@ -219,7 +219,7 @@ class VariableLpNorm(odl.solvers.Functional):
         s_low, s_up = min(s, s_old), max(s, s_old)
         for _ in range(maxiter - it + 1):
             s_test = (s_low + s_up) / 2  # TODO: use golden ratio
-            m_test = self.modulus(f / s_test)
+            m_test = self.modular(f / s_test)
             if abs(m_test - 1) <= atol:
                 return s_test
             elif m_test < 1:
@@ -305,11 +305,11 @@ var_exponent = 2.0 - np.greater(exp_conv(abs_lapl), 0.3)
 var_exponent.show('Exponent function')
 
 # Set up the variable Lp TV functional - a composition
-# lp_modulus o pointwise_norm o gradient
+# lp_modular o pointwise_norm o gradient
 spatial_grad = odl.Gradient(discr)
 pw_norm = odl.PointwiseNorm(spatial_grad.range)
-var_lp_modulus = VariableLpModulus(discr, var_exp=var_exponent)
-var_lp_tv_func = var_lp_modulus * pw_norm * spatial_grad
+var_lp_modular = VariableLpModular(discr, var_exp=var_exponent)
+var_lp_tv_func = var_lp_modular * pw_norm * spatial_grad
 
 # Generate some data - a convolution of the phantom with a Gaussian kernel
 conv = odl.Convolution(discr, kernel)
