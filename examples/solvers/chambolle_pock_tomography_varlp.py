@@ -29,16 +29,12 @@ import numpy as np
 import odl
 
 
-def kernel(x):
-    scaled_x = [xi / (np.sqrt(2) * 0.02) for xi in x]
-    sq_sum = sum(xi ** 2 for xi in scaled_x)
-    return np.exp(-sq_sum) / (2 * np.pi * 0.02 ** 2)
-
-
-reco_space = odl.uniform_discr([-1, -1], [1, 1], (300, 300), dtype='float32')
-small_space = odl.uniform_discr([-1, -1], [1, 1], (100, 100), dtype='float32')
+reco_space = odl.uniform_discr([-10, -10], [10, 10], (300, 300),
+                               dtype='float32')
+small_space = odl.uniform_discr([-10, -10], [10, 10], (100, 100),
+                                dtype='float32')
 tmp = odl.util.phantom.submarine_phantom(small_space, smooth=False)
-tmp += odl.util.phantom.submarine_phantom(small_space, smooth=True)
+tmp += odl.util.phantom.submarine_phantom(small_space, smooth=True, taper=5)
 phantom = reco_space.zero()
 phantom.asarray()[100:200, 100:200] = tmp
 phantom.show('Phantom')
@@ -52,24 +48,20 @@ phantom.show('Phantom')
 # - Sensitivity to noise
 # - Binary image - perhaps better to have a smooth function
 
-exp_kernel = np.ones((3, 3))
+
+exp_kernel = np.ones((5, 5))
 exp_conv = odl.Convolution(reco_space, exp_kernel, impl='scipy_convolve',
                            scale=False)
 lapl = odl.Laplacian(reco_space)
 abs_lapl = np.abs(lapl(phantom))
-abs_lapl /= np.amax(abs_lapl)
-var_exponent = 2.0 - np.greater(exp_conv(abs_lapl), 0.3)
+conv_abs_lapl = exp_conv(abs_lapl)
+conv_abs_lapl /= np.max(conv_abs_lapl)
+var_exponent = 2.0 - np.greater(conv_abs_lapl, 0.3)
 var_exponent.show('Exponent function')
-
-# Generate some data - a convolution of the phantom with a Gaussian kernel
-conv = odl.Convolution(reco_space, kernel)
-data = conv(phantom)
-kernel_elem = reco_space.element(kernel)
-kernel_elem.show('Convolution kernel')
-data.show('Data - convolved phantom')
 
 
 # --- Set up the forward operator (ray transform) --- #
+
 
 # Make a parallel beam geometry with flat detector
 # Angles: uniformly spaced, n = 360, min = 0, max = 2 * pi
@@ -84,10 +76,16 @@ geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
 # 'astra_cpu', 'astra_cuda'   Require astra tomography to be installed.
 #                             Astra is much faster than scikit. Webpage:
 #                             https://github.com/astra-toolbox/astra-toolbox
-impl = 'astra_cuda'
+impl = 'scikit'
 
-# Ray transform aka forward projection.
+# Ray transform as forward operator
 ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl=impl)
+
+
+# --- Generate data --- #
+
+data = ray_trafo(phantom)
+data.show('Generated data')
 
 
 # --- Set up the inverse problem --- #
@@ -104,24 +102,25 @@ proximal_primal = odl.solvers.proximal_zero(op.domain)
 
 # Create proximal operators for the dual variable
 
-# l2-data matching
-prox_convconj_l2 = odl.solvers.proximal_convexconjugate_l2(ray_trafo.range,
-                                                           g=data)
+# L2-data matching
+prox_convconj_l2 = odl.solvers.proximal_convexconjugate_l2(
+    ray_trafo.range, g=data)
 
-# TV-regularization i.e. the l1-norm
-prox_convconj_l1 = odl.solvers.proximal_convexconjugate_l1(
-    gradient.range, lam=0.01)
+# TV-regularization with variable Lp
+prox_convconj_varlp = odl.solvers.proximal_convexconjugate(
+    odl.solvers.proximal_variable_lp(gradient.range, var_exponent, lam=0.001))
 
 # Combine proximal operators, order must correspond to the operator K
 proximal_dual = odl.solvers.combine_proximals(
-    [prox_convconj_l2, prox_convconj_l1])
+    [prox_convconj_l2, prox_convconj_varlp])
 
 
 # --- Select solver parameters and solve using Chambolle-Pock --- #
 
 
 # Estimated operator norm, add 10 percent to ensure ||K||_2^2 * sigma * tau < 1
-op_norm = 1.1 * odl.operator.oputils.power_method_opnorm(op, 5)
+op_norm = 1.5 * odl.operator.oputils.power_method_opnorm(op, 5)
+print('operator norm estimate: ', op_norm)
 
 niter = 400  # Number of iterations
 tau = 1.0 / op_norm  # Step size for the primal variable
@@ -140,6 +139,6 @@ odl.solvers.chambolle_pock_solver(
     proximal_dual=proximal_dual, niter=niter, partial=partial)
 
 # Display images
-discr_phantom.show(title='original image')
-data.show(title='convolved image')
-x.show(title='deconvolved image', show=True)
+phantom.show(title='Phantom')
+data.show(title='Generated data')
+x.show(title='Reconstruction', show=True)
