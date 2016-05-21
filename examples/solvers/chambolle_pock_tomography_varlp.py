@@ -31,12 +31,14 @@ import odl
 
 reco_space = odl.uniform_discr([-10, -10], [10, 10], (300, 300),
                                dtype='float32')
-small_space = odl.uniform_discr([-10, -10], [10, 10], (100, 100),
-                                dtype='float32')
-tmp = odl.util.phantom.submarine_phantom(small_space, smooth=False)
-tmp += odl.util.phantom.submarine_phantom(small_space, smooth=True, taper=5)
-phantom = reco_space.zero()
-phantom.asarray()[100:200, 100:200] = tmp
+#small_space = odl.uniform_discr([-10, -10], [10, 10], (100, 100),
+#                                dtype='float32')
+#tmp = odl.util.phantom.submarine_phantom(small_space, smooth=False)
+#tmp += odl.util.phantom.submarine_phantom(small_space, smooth=True, taper=5)
+#phantom = reco_space.zero()
+#phantom.asarray()[100:200, 100:200] = tmp
+phantom = odl.util.phantom.submarine_phantom(reco_space, smooth=False)
+phantom += odl.util.phantom.submarine_phantom(reco_space, smooth=True, taper=5)
 phantom.show('Phantom')
 
 # Define the exponent: we use a convolution with a 3x3 constant kernel to
@@ -48,15 +50,48 @@ phantom.show('Phantom')
 # - Sensitivity to noise
 # - Binary image - perhaps better to have a smooth function
 
+s = 0.5
 
-exp_kernel = np.ones((5, 5))
-exp_conv = odl.Convolution(reco_space, exp_kernel, impl='scipy_convolve',
+
+def exp_kernel(x):
+    scaled = [xi / (np.sqrt(2) * s) for xi in x]
+    return np.exp(-sum(xi ** 2 for xi in scaled))
+
+
+def p(x):
+    return (((np.abs(x[0]) < 5.2) & (np.abs(x[1]) < 5.2)).astype(float) -
+            ((np.abs(x[0]) < 4.8) & (np.abs(x[1]) < 4.8)))
+
+
+add_kernel = np.ones((10, 10))
+exp_conv = odl.Convolution(reco_space, exp_kernel, impl='default_ft',
+                           scale=False)
+add_conv = odl.Convolution(reco_space, add_kernel, impl='scipy_convolve',
                            scale=False)
 lapl = odl.Laplacian(reco_space)
 abs_lapl = np.abs(lapl(phantom))
-conv_abs_lapl = exp_conv(abs_lapl)
-conv_abs_lapl /= np.max(conv_abs_lapl)
-var_exponent = 2.0 - np.greater(conv_abs_lapl, 0.3)
+conv_abs_lapl = np.maximum(exp_conv(abs_lapl), 0)
+#conv_abs_lapl[:] = add_conv(conv_abs_lapl)
+conv_abs_lapl *= 1.5 / np.max(conv_abs_lapl)
+conv_abs_lapl[:] = np.minimum(conv_abs_lapl, 1)
+var_exponent = 2.0 - conv_abs_lapl
+var_exponent_arr = var_exponent.asarray()
+
+q = reco_space.element(p)
+conv_q = exp_conv(q)
+conv_q *= 1.5 / np.max(conv_q)
+conv_q[:] = np.minimum(conv_q, 1)
+var_exponent = 2.0 - conv_q
+
+
+# Shift the exponent function (disturbance)
+new_exp = 2 * np.ones_like(var_exponent)
+new_exp[:, 10:] = var_exponent_arr[:, :-10]
+var_exponent[:] = new_exp
+
+# Disturb the exponent function
+#var_exponent_arr[:, 100:150] = 2.0
+
 var_exponent.show('Exponent function')
 
 
@@ -76,7 +111,7 @@ geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
 # 'astra_cpu', 'astra_cuda'   Require astra tomography to be installed.
 #                             Astra is much faster than scikit. Webpage:
 #                             https://github.com/astra-toolbox/astra-toolbox
-impl = 'scikit'
+impl = 'astra_cuda'
 
 # Ray transform as forward operator
 ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl=impl)
@@ -85,7 +120,7 @@ ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl=impl)
 # --- Generate data --- #
 
 data = ray_trafo(phantom)
-data.show('Generated data')
+noisy_data = data + 3 * odl.util.phantom.white_noise(data.space)
 
 
 # --- Set up the inverse problem --- #
@@ -103,16 +138,28 @@ proximal_primal = odl.solvers.proximal_zero(op.domain)
 # Create proximal operators for the dual variable
 
 # L2-data matching
-prox_convconj_l2 = odl.solvers.proximal_convexconjugate_l2(
-    ray_trafo.range, g=data)
+#prox_convconj_l2_data = odl.solvers.proximal_convexconjugate_l2(
+#    ray_trafo.range, g=data)
+
+prox_convconj_l2_data = odl.solvers.proximal_convexconjugate_l2_squared(
+    ray_trafo.range, g=noisy_data)
 
 # TV-regularization with variable Lp
-prox_convconj_varlp = odl.solvers.proximal_convexconjugate(
-    odl.solvers.proximal_variable_lp(gradient.range, var_exponent, lam=0.001))
+lam = 0.1
+prox_var_lp = odl.solvers.proximal_variable_lp(gradient.range, var_exponent,
+                                               lam=lam)
+prox_convconj_varlp = odl.solvers.proximal_convexconjugate(prox_var_lp)
+prox_convconj_l1 = odl.solvers.proximal_convexconjugate_l1(
+    gradient.range, lam=lam)
+
+prox_convconj_l2 = odl.solvers.proximal_convexconjugate_l2_squared(
+    gradient.range, lam=lam)
 
 # Combine proximal operators, order must correspond to the operator K
 proximal_dual = odl.solvers.combine_proximals(
-    [prox_convconj_l2, prox_convconj_varlp])
+    [prox_convconj_l2_data, prox_convconj_varlp])
+#proximal_dual = odl.solvers.combine_proximals(
+#    [prox_convconj_l2_data, prox_convconj_l2])
 
 
 # --- Select solver parameters and solve using Chambolle-Pock --- #
@@ -122,23 +169,26 @@ proximal_dual = odl.solvers.combine_proximals(
 op_norm = 1.5 * odl.operator.oputils.power_method_opnorm(op, 5)
 print('operator norm estimate: ', op_norm)
 
-niter = 400  # Number of iterations
-tau = 1.0 / op_norm  # Step size for the primal variable
-sigma = 1.0 / op_norm  # Step size for the dual variable
+niter = 2000  # Number of iterations
+tau = 1.0  # Step size for the primal variable
+sigma = 1.0 / (op_norm ** 2 * tau)  # Step size for the dual variable
+gamma = 0.1
+theta = 0.85
 
 # Optionally pass partial to the solver to display intermediate results
 partial = (odl.solvers.util.PrintIterationPartial() &
-           odl.solvers.util.ShowPartial())
+           odl.solvers.util.ShowPartial(display_step=50))
 
 # Choose a starting point
 x = op.domain.zero()
 
 # Run the algorithm
 odl.solvers.chambolle_pock_solver(
-    op, x, tau=tau, sigma=sigma, proximal_primal=proximal_primal,
+    op, x, tau=tau, sigma=sigma, gamma=gamma, theta=theta,
+    proximal_primal=proximal_primal,
     proximal_dual=proximal_dual, niter=niter, partial=partial)
 
 # Display images
 phantom.show(title='Phantom')
-data.show(title='Generated data')
+noisy_data.show(title='Data')
 x.show(title='Reconstruction', show=True)
