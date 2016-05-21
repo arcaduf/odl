@@ -30,6 +30,7 @@ from builtins import super
 import numpy as np
 import scipy as sp
 
+from odl.discr.tensor_ops import PointwiseNorm
 from odl.operator.operator import Operator
 from odl.operator.default_ops import IdentityOperator
 from odl.operator.pspace_ops import ProductSpaceOperator
@@ -969,6 +970,40 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
             else:
                 self.g = None
 
+        def _newton_iter(self, it, val, sigma, p, pm1, pm2, niter=5,
+                         start_relax=0.5, tmp=None):
+            """Helper method for the inner Newton iteration."""
+            # Start value which guarantees convergence.
+            np.divide(val, p, out=it)
+            it /= pm2
+            it /= -sigma
+            # Avoid huge values by setting the start value to 1 if the
+            # computed one is larger than 1. Since the power 1/(p-1) can be
+            # as large as 20, we don't want large arguments. In those
+            # points, a very small result is likely anyway.
+            small_enough = (it <= 1)
+            it[small_enough] **= 1.0 / pm1[small_enough]
+            it[~small_enough] = 1.0
+            it *= start_relax
+
+            # The iteration itself
+            for i in range(niter):
+                # Denominator 1 + p*(p-1)*sigma*q**(p-2)
+                tmp = np.power(it, pm2, out=tmp)
+                tmp *= p
+                tmp *= pm1
+                tmp *= sigma
+                tmp += 1.0
+
+                # Nominator p*(p-2)*sigma*q**(p-1) + val
+                np.power(it, pm1, out=it)
+                it *= p
+                it *= pm2
+                it *= sigma
+                it += val
+
+                it /= tmp
+
         def _call(self, f, out, **kwargs):
             """Implement ``self(x, out, **kwargs)``.
 
@@ -991,70 +1026,41 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
             if self.g is not None:
                 f = f - self.g
 
+            step = self.sigma * float(lam)
+
             exp_arr = self.exponent.asarray()
             out_arr = out.asarray()
+            f_arr = f.asarray()
+            f_nz = (f_arr != 0)
 
             # p = 2
             # This formula is used globally since it sets out to 0
-            # where f is 0 for the p = 1 case and acts as a starting
-            # value for the other case.
-            out.lincomb(0, out, 1.0 / (1.0 + 2.0 * self.sigma), f)
+            # where f is 0.
+            out.lincomb(0, out, 1.0 / (1.0 + 2.0 * step), f)
 
-            # p = 1
-            exp_1 = (exp_arr == 1.0)
-            f_arr = f.asarray()
-            f_nonzero = np.nonzero(f_arr[exp_1])
-            out_arr_1 = out_arr[exp_1]
-            factor = np.maximum(
-                1.0 - self.sigma / np.abs(f_arr[exp_1][f_nonzero]), 0.0)
-            out_arr_1[f_nonzero] = factor * f_arr[exp_1][f_nonzero]
-            out_arr[exp_1] = out_arr_1
+            # p = 1 (taking also close to one for stability)
+            cur_exp = (exp_arr <= 1.05)
+            current = cur_exp & f_nz
+            factor = np.maximum(1.0 - step / np.abs(f_arr[current]), 0.0)
+            out_arr[current] = factor * f_arr[current]
 
-            # Newton iteration for other p values
-            exp_p = ~((exp_arr == 2.0) | exp_1)
-            v_p = out_arr[exp_p]
-            f_p = f.asarray()[exp_p]
-            exp_m2 = exp_arr[exp_p] - 2
-            exp_m4 = exp_arr[exp_p] - 4
-
-            # Create temporary arrays for |v|, <v, f>, alpha, beta and gamma
-            tmp_v_norm = self.domain.element().asarray()[exp_p]
-            tmp_v_inner_f = np.empty_like(tmp_v_norm)
-            tmp_alpha = np.empty_like(tmp_v_norm)
-            tmp_beta = np.empty_like(tmp_v_norm)
-            tmp_gamma = np.empty_like(tmp_v_norm)
+            # Newton iteration for other p values. We consider only those
+            # entries that correspond to f != 0.
+            cur_exp = ~((exp_arr >= 1.95) | cur_exp)
+            current = cur_exp & f_nz
+            exp_p = exp_arr[current]
+            exp_m1 = exp_p - 1
+            exp_m2 = exp_p - 2
+            it = out_arr[current]
+            val = f_arr[current]
+            tmp = np.empty_like(it)
 
             maxiter = int(kwargs.pop('max_newton_iter', 5))
-            for _ in range(maxiter):
-                # Iteration:
-                # v_new = (alpha*gamma*|v|^2 - gamma/tau* <v,f>) * v +
-                #         f / (tau * alpha)
+            self._newton_iter(it, np.abs(val), step, exp_p, exp_m1, exp_m2,
+                              niter=maxiter, tmp=tmp)
 
-                # Compute |v|
-                np.abs(v_p, out=tmp_v_norm)
-
-                # Compute <v, f> (multiplication)
-                np.multiply(v_p, f_p, out=tmp_v_inner_f)
-
-                # alpha = p * |v|**(p-2) + 1/sigma
-                np.power(tmp_v_norm, exp_m2, out=tmp_alpha)
-                tmp_alpha *= exp_arr[exp_p]
-                tmp_alpha += 1 / self.sigma
-
-                # beta = p * (p-2) * |v|**(p-4)
-                np.power(tmp_v_norm, exp_m4, out=tmp_beta)
-                tmp_beta *= exp_arr[exp_p] * exp_m2
-
-                # gamma = beta / (alpha * (alpha + beta * |v|**2))
-                np.divide(tmp_beta, tmp_alpha, out=tmp_gamma)
-                tmp_gamma /= tmp_alpha + tmp_beta * tmp_v_norm ** 2
-
-                # Update the iterate
-                v_p *= (tmp_alpha * tmp_gamma * tmp_v_norm ** 2 -
-                        tmp_gamma * tmp_v_inner_f / self.sigma)
-                v_p += f_p / (self.sigma * tmp_alpha)
-
-            out_arr[exp_p] = v_p
+            out_arr[current] = it
+            out_arr[current] *= np.sign(val)
             out[:] = out_arr
 
             if self.g is not None:
@@ -1065,84 +1071,49 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
             if self.g is not None:
                 f = f - self.g
 
+            step = self.sigma * float(lam)
+
             exp_arr = self.exponent.asarray()
-            base_space = self.domain[0]
+            f_nz = [(fi.asarray() != 0) for fi in f]
+            pw_norm = PointwiseNorm(self.domain)
+            f_norm = pw_norm(f)
 
             # p = 2
             # This formula is used globally since it sets out to 0
-            # where f is 0 for the p = 1 case and acts as a starting
-            # value for the other case.
-            out.lincomb(0, out, 1.0 / (1.0 + 2.0 * self.sigma), f)
+            # where f is 0.
+            out.lincomb(0, out, 1.0 / (1.0 + 2.0 * step), f)
 
-            # p = 1
-            exp_1 = (exp_arr == 1.0)
-            for fi, oi in f, out:
+            # p = 1 (taking also close to one for stability)
+            cur_exp = (exp_arr <= 1.05)
+            for fi, fi_nz, oi in zip(f, f_nz, out):
                 fi_arr = fi.asarray()
                 oi_arr = oi.asarray()
-                oi_arr_1 = oi_arr[exp_1]
-                fi_nonzero = np.nonzero(fi_arr[exp_1])
-                factor = np.maximum(
-                    1.0 - self.sigma / np.abs(fi_arr[exp_1][fi_nonzero]),
-                    0.0)
-                oi_arr_1[fi_nonzero] = factor * fi_arr[exp_1][fi_nonzero]
-                oi_arr[exp_1] = oi_arr_1
+                current = cur_exp & fi_nz
+                factor = np.maximum(1.0 - step / np.abs(fi_arr[current]), 0.0)
+                oi_arr[current] = factor * fi_arr[current]
+                oi[:] = oi_arr
 
             # Newton iteration for other p values
-            exp_p = ~((exp_arr == 2.0) | exp_1)
-            v_p = [oi.asarray()[exp_p] for oi in out]
-            f_p = [fi.asarray()[exp_p] for fi in f]
-            exp_m2 = exp_arr[exp_p] - 2
-            exp_m4 = exp_arr[exp_p] - 4
-
-            # Create temporary arrays for |v|, <v, f>, alpha, beta and gamma
-            tmp_v_norm = base_space.element().asarray()[exp_p]
-            tmp_v_inner_f = np.empty_like(tmp_v_norm)
-            tmp_alpha = np.empty_like(tmp_v_norm)
-            tmp_beta = np.empty_like(tmp_v_norm)
-            tmp_gamma = np.empty_like(tmp_v_norm)
-            tmp = np.empty_like(tmp_v_norm)
-
             maxiter = int(kwargs.pop('max_newton_iter', 5))
-            for _ in range(maxiter):
-                # Iteration:
-                # v_new = (alpha*gamma*|v|^2 - gamma/tau* <v,f>) * v +
-                #         f / (tau * alpha)
-
-                # Compute |v|
-                np.square(v_p[0], out=tmp_v_norm)
-                for vi in v_p[1:]:
-                    np.square(vi, out=tmp)
-                    tmp_v_norm += tmp
-                np.sqrt(tmp_v_norm, out=tmp_v_norm)
-
-                # Compute <v, f> (multiplication)
-                np.multiply(v_p[0], f_p[0], out=tmp_v_inner_f)
-                for vi, fi in zip(v_p[1:], f_p[1:]):
-                    np.multiply(vi, fi, out=tmp)
-                    tmp_v_inner_f += tmp
-
-                # alpha = p * |v|**(p-2) + 1/sigma
-                np.power(tmp_v_norm, exp_m2, out=tmp_alpha)
-                tmp_alpha *= exp_arr[exp_p]
-                tmp_alpha += 1 / self.sigma
-
-                # beta = p * (p-2) * |v|**(p-4)
-                np.power(tmp_v_norm, exp_m4, out=tmp_beta)
-                tmp_beta *= exp_arr[exp_p] * exp_m2
-
-                # gamma = beta / (alpha * (alpha + beta * |v|**2))
-                np.divide(tmp_beta, tmp_alpha, out=tmp_gamma)
-                tmp_gamma /= tmp_alpha + tmp_beta * tmp_v_norm ** 2
-
-                # Update the iterate
-                for vi, fi in zip(v_p, f_p):
-                    vi *= (tmp_alpha * tmp_gamma * tmp_v_norm ** 2 -
-                           tmp_gamma * tmp_v_inner_f / self.sigma)
-                    vi += fi / (self.sigma * tmp_alpha)
-
-            for oi, vi in zip(out, v_p):
+            cur_exp = ~((exp_arr >= 1.95) | cur_exp)
+            for fi, fi_nz, oi in zip(f, f_nz, out):
+                fi_arr = fi.asarray()
                 oi_arr = oi.asarray()
-                oi_arr[exp_p] = vi
+                current = cur_exp & fi_nz
+                exp_p = exp_arr[current]
+                exp_m1 = exp_p - 1
+                exp_m2 = exp_p - 2
+
+                it = oi_arr[current]
+                val = fi_arr[current]
+                tmp = np.empty_like(it)
+                self._newton_iter(it, np.abs(val), step, exp_p, exp_m1, exp_m2,
+                                  niter=maxiter, tmp=tmp)
+
+                oi_arr[current] = it
+                oi_arr[current] /= f_norm.asarray()[current]
+                oi_arr[current] *= val
+
                 oi[:] = oi_arr
 
             if self.g is not None:
