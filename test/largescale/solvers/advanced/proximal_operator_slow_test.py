@@ -21,6 +21,7 @@
 from __future__ import print_function, division, absolute_import
 from future import standard_library
 standard_library.install_aliases()
+from builtins import super
 
 # External
 import numpy as np
@@ -40,7 +41,7 @@ from odl.util.testutils import example_element
 pytestmark = odl.util.skip_if_no_largescale
 
 
-class VariableLpModular(odl.solvers.Functional):
+class VariableLpModular(odl.Operator):
 
     """Functional for evaluating the variable Lp modular.
 
@@ -67,7 +68,7 @@ class VariableLpModular(odl.solvers.Functional):
         var_exp : scalar-valued ``space`` `element-like`
             The variable exponent ``p(x)``
         """
-        super().__init__(space, linear=False)
+        super().__init__(space, space.field, linear=False)
         self.var_exp = self.domain.element(var_exp)
         self._var_exp_flat = self.var_exp.asarray().ravel()
         self._fin_idcs = np.where(np.isfinite(self._var_exp_flat))
