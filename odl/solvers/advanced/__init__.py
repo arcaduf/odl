@@ -26,3 +26,9 @@ __all__ += chambolle_pock.__all__
 from . import proximal_operators
 from .proximal_operators import *
 __all__ += proximal_operators.__all__
+
+try:
+    from .var_lp_prox_c import *
+    __all__ += var_lp_prox_c.__all__
+except ImportError:
+    pass

@@ -1,0 +1,8 @@
+def make_ext(modname, pyxfilename):
+    from distutils.extension import Extension
+    import os
+    import numpy as np
+    return Extension(name=modname,
+                     sources=[pyxfilename],
+                     language='c',
+                     include_dirs=[os.path.join(np.__path__[0], 'core/include')])
