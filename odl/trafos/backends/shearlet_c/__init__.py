@@ -22,10 +22,8 @@ from __future__ import absolute_import
 
 __all__ = ()
 
-from . import backends
-
-from .fourier import *
-__all__ += fourier.__all__
-
-from .wavelet import *
-__all__ += wavelet.__all__
+try:
+    from .shearlet_c import *
+    __all__ += shearlet_c.__all__
+except ImportError:
+    pass

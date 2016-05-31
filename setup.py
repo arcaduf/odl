@@ -117,7 +117,16 @@ Features
 # - optional (bool)
 
 cython_modules = {
-    'odl/solvers/advanced/var_lp_prox_c.pyx': {
+    'odl/trafos/backends/shearlet_c/shearlet_c.pyx': {
+        'sources': [
+            'odl/trafos/backends/shearlet_c/c_src/shearlets2D.c',
+            'odl/trafos/backends/shearlet_c/c_src/many_orth1d.c',
+            'odl/trafos/backends/shearlet_c/c_src/many_orth1d_skip_L.c',
+            'odl/trafos/backends/shearlet_c/c_src/many_orth1d_skip_H.c',
+            'odl/trafos/backends/shearlet_c/c_src/many_orth1d_par.c',
+            'odl/trafos/backends/shearlet_c/c_src/many_orth1d_par_skip_L.c',
+            'odl/trafos/backends/shearlet_c/c_src/many_orth1d_par_skip_H.c',
+                    ],
         'include_dirs': [os.path.join(np.__path__[0], 'core/include')]}
 }
 
