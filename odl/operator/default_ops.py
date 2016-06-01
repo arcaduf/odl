@@ -45,7 +45,7 @@ class ScalingOperator(Operator):
         ----------
         space : `LinearSpace`
             The space of elements which the operator is acting on
-        scalar : `LinearSpace.field` `element`
+        scalar : `LinearSpace.field` element
             An element of the field of the space which vectors are
             scaled with
         """
@@ -62,14 +62,14 @@ class ScalingOperator(Operator):
 
         Parameters
         ----------
-        x : ``domain`` `element`
+        x : ``domain`` element
             input vector to be scaled
-        out : ``range`` `element`, optional
+        out : ``range`` element, optional
             Output vector to which the result is written
 
         Returns
         -------
-        out : ``range`` `element`
+        out : ``range`` element
             Result of the scaling. If ``out`` was provided, the
             returned object is a reference to it.
 
@@ -206,15 +206,15 @@ class LinCombOperator(Operator):
 
         Parameters
         ----------
-        x : ``domain`` `element`
+        x : ``domain`` element
             An element of the operator domain (2-tuple of space
             elements) whose linear combination is calculated
-        out : ```range`` `element`
+        out : ```range`` element
             Vector to which the result is written
 
         Returns
         -------
-        out : ``range`` `element`
+        out : ``range`` element
             Result of the linear combination. If ``out`` was provided,
             the returned object is a reference to it.
 
@@ -285,15 +285,15 @@ class MultiplyOperator(Operator):
 
         Parameters
         ----------
-        x : ``domain`` `element`
+        x : ``domain`` element
             An element in the operator domain whose elementwise product is
             calculated.
-        out : ``range`` `element`, optional
+        out : ``range`` element, optional
             Vector to which the result is written
 
         Returns
         -------
-        out : ``range`` `element`
+        out : ``range`` element
             Result of the multiplication. If ``out`` was provided, the
             returned object is a reference to it.
 
@@ -404,15 +404,15 @@ class PowerOperator(Operator):
 
         Parameters
         ----------
-        x : ``domain`` `element`
+        x : ``domain`` element
             An element in the operator domain (2-tuple of space
             elements) whose elementwise product is calculated
-        out : ``range`` `element`, optional
+        out : ``range`` element, optional
             Vector to which the result is written
 
         Returns
         -------
-        out : ``range`` `element`
+        out : ``range`` element
             Result of the multiplication. If ``out`` was provided, the
             returned object is a reference to it.
 
@@ -446,7 +446,7 @@ class PowerOperator(Operator):
 
         Parameters
         ----------
-        point : ``domain`` `element`
+        point : ``domain`` element
             The point in which to take the derivative
 
         Returns
@@ -510,12 +510,12 @@ class InnerProductOperator(Operator):
 
         Parameters
         ----------
-        x : ``vector.space`` `element`
+        x : ``vector.space`` element
             An element in the space of the vector
 
         Returns
         -------
-        out : ``field`` `element`
+        out : ``field`` element
             Result of the inner product calculation
 
         Examples
@@ -612,7 +612,7 @@ class ConstantOperator(Operator):
 
         Parameters
         ----------
-        x : ``domain`` `element`
+        x : ``domain`` element
             An element of the domain
         out : ``range`` element
             Vector that gets assigned to the constant vector
@@ -681,14 +681,14 @@ class ResidualOperator(Operator):
 
         Parameters
         ----------
-        x : ``domain`` `element`
+        x : ``domain`` element
             Any element of the domain
-        out : ``range`` `element`
+        out : ``range`` element
             Vector that gets assigned to the constant vector
 
         Returns
         -------
-        out : ``range`` `element`
+        out : ``range`` element
             Result of the evaluation. If ``out`` was provided, the
             returned object is a reference to it.
 
@@ -720,7 +720,7 @@ class ResidualOperator(Operator):
 
         Parameters
         ----------
-        x : ``domain`` `element`
+        x : ``domain`` element
             Any element in the domain where the derivative should be taken
 
         Examples

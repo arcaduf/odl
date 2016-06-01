@@ -48,7 +48,7 @@ class OperatorTest(object):
         ----------
         operator : `Operator`
             The operator to run tests on
-        operator_norm : `float`
+        operator_norm : float
             The norm of the operator, used for error estimates
             can be estimated otherwise.
         """
@@ -67,7 +67,7 @@ class OperatorTest(object):
 
         Returns
         -------
-        norm : `float`
+        norm : float
             Estimate of operator norm
 
         References

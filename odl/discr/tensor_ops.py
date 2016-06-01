@@ -68,8 +68,8 @@ class PointwiseTensorFieldOperator(Operator):
             They have to be either power spaces of the same base space
             ``X`` or the base space itself (only one of them).
             Empty product spaces are not allowed.
-        linear : `bool`, optional
-            If `True`, assume that the operator is linear.
+        linear : bool, optional
+            If True, assume that the operator is linear.
         """
         if isinstance(domain, ProductSpace):
             if not domain.is_power_space:
@@ -143,12 +143,12 @@ class PointwiseNorm(PointwiseTensorFieldOperator):
             Space of vector fields on which the operator acts.
             It has to be a product space of identical spaces, i.e. a
             power space.
-        exponent : non-zero `float`, optional
+        exponent : non-zero float, optional
             Exponent of the norm in each point. Values between
             0 and 1 are currently not supported due to numerical
             instability.
             Default: ``vfspace.exponent``
-        weight : `array-like` or `float`, optional
+        weight : array-like or float, optional
             Weighting array or constant for the norm. If an array is
             given, its length must be equal to ``domain.size``, and
             all entries must be positive. A provided constant must be
@@ -244,7 +244,7 @@ class PointwiseNorm(PointwiseTensorFieldOperator):
 
     @property
     def is_weighted(self):
-        """`True` if weighting is not 1 or all ones."""
+        """True if weighting is not 1 or all ones."""
         return self._is_weighted
 
     def _call(self, f, out):
@@ -398,7 +398,7 @@ class PointwiseInner(PointwiseTensorFieldOperator):
         vecfield : domain `element-like`
             Vector field with which to calculate the point-wise inner
             product of an input vector field
-        weight : `array-like` or `float`, optional
+        weight : array-like or float, optional
             Weighting array or constant for the norm. If an array is
             given, its length must be equal to ``domain.size``, and
             all entries must be positive. A provided constant must be
@@ -481,7 +481,7 @@ class PointwiseInner(PointwiseTensorFieldOperator):
 
     @property
     def is_weighted(self):
-        """`True` if weighting is not 1 or all ones."""
+        """True if weighting is not 1 or all ones."""
         return self._is_weighted
 
     def _call(self, vf, out):
@@ -552,7 +552,7 @@ class PointwiseInnerAdjoint(PointwiseInner):
             This option is intended to enforce an operator range
             with a certain weighting.
             Default: ``ProductSpace(space, len(vecfield), weight=weight)``
-        weight : `array-like` or `float`, optional
+        weight : array-like or float, optional
             Weighting array or constant of the inner product operator.
             If an array is given, its length must be equal to
             ``len(vecfield)``, and all entries must be positive. A

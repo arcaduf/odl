@@ -87,9 +87,9 @@ class NtuplesBase(Set):
 
         Returns
         -------
-        contains : `bool`
-            `True` if ``other`` is an `NtuplesBaseVector` instance and
-            ``other.space`` is equal to this space, `False` otherwise.
+        contains : bool
+            True if ``other`` is an `NtuplesBaseVector` instance and
+            ``other.space`` is equal to this space, False otherwise.
 
         Examples
         --------
@@ -109,9 +109,9 @@ class NtuplesBase(Set):
 
         Returns
         -------
-        equals : `bool`
-            `True` if ``other`` is an instance of this space's type
-            with the same `size` and `dtype`, otherwise `False`.
+        equals : bool
+            True if ``other`` is an instance of this space's type
+            with the same `size` and `dtype`, False otherwise.
 
         Examples
         --------
@@ -176,19 +176,19 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
         Parameters
         ----------
-        start : `int`, optional
-            Start position. `None` means the first element.
-        start : `int`, optional
+        start : int, optional
+            Start position. None means the first element.
+        start : int, optional
             One element past the last element to be extracted.
-            `None` means the last element.
-        start : `int`, optional
-            Step length. `None` means 1.
-        out : `numpy.ndarray`
+            None means the last element.
+        start : int, optional
+            Step length. None means 1.
+        out : numpy.ndarray
             Array to write result to.
 
         Returns
         -------
-        asarray : `numpy.ndarray`
+        asarray : numpy.ndarray
             Numpy array of the same type as the space.
         """
 
@@ -198,7 +198,7 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
         Parameters
         ----------
-        indices : `int` or `slice`
+        indices : int or slice
             The position(s) that should be accessed
 
         Returns
@@ -213,9 +213,9 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
         Parameters
         ----------
-        indices : `int` or `slice`
+        indices : int or slice
             The position(s) that should be set
-        values : scalar, `array-like` or `NtuplesBaseVector`
+        values : scalar, array-like or `NtuplesBaseVector`
             The value(s) that are to be assigned.
 
             If ``index`` is an integer, ``value`` must be single value.
@@ -231,9 +231,9 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
         Returns
         -------
-        equals : `bool`
-            `True` if all entries of ``other`` are equal to this
-            vector's entries, `False` otherwise.
+        equals : bool
+            True if all entries of ``other`` are equal to this
+            vector's entries, False otherwise.
         """
 
     @property
@@ -283,12 +283,12 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
         Parameters
         ----------
-        dtype : `object`
+        dtype :
             Specifier for the data type of the output array
 
         Returns
         -------
-        array : `numpy.ndarray`
+        array : numpy.ndarray
         """
         if dtype is None:
             return self.asarray()
@@ -300,7 +300,7 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
         Parameters
         ----------
-        obj : `numpy.ndarray`
+        obj : numpy.ndarray
             The array that should be wrapped
 
         Returns
@@ -340,17 +340,17 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
         Parameters
         ----------
-        title : `str`, optional
+        title : string, optional
             Set the title of the figure
 
-        method : `str`, optional
+        method : string, optional
             1d methods:
 
             'plot' : graph plot
 
             'scatter' : point plot
 
-        show : `bool`, optional
+        show : bool, optional
             If the plot should be showed now or deferred until later.
 
         fig : `matplotlib.figure.Figure`
@@ -389,9 +389,9 @@ class FnBase(NtuplesBase, LinearSpace):
 
         Parameters
         ----------
-        size : `int`
+        size : int
             The number of dimensions of the space
-        dtype : `object`
+        dtype :
             The data type of the storage array. Can be provided in any
             way the `numpy.dtype` function understands, most notably
             as built-in type, as one of NumPy's internal datatype
@@ -423,12 +423,12 @@ class FnBase(NtuplesBase, LinearSpace):
 
     @property
     def is_rn(self):
-        """Return `True` if the space represents R^n, i.e. real tuples."""
+        """Return True if the space represents R^n, i.e. real tuples."""
         return self._is_real and self._is_floating
 
     @property
     def is_cn(self):
-        """Return `True` if the space represents C^n, i.e. complex tuples."""
+        """Return True if the space represents C^n, i.e. complex tuples."""
         return (not self._is_real) and self._is_floating
 
     def _astype(self, dtype):
@@ -443,7 +443,7 @@ class FnBase(NtuplesBase, LinearSpace):
         dtype :
             Data type of the returned space. Can be given in any way
             `numpy.dtype` understands, e.g. as string ('complex64')
-            or data type (`complex`).
+            or data type (complex).
 
         Returns
         -------

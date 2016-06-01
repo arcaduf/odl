@@ -47,7 +47,7 @@ class Partial(with_metaclass(ABCMeta, object)):
 
         Returns
         -------
-        `None`
+        None
         """
 
     def __and__(self, other):
@@ -90,7 +90,7 @@ class AndPartial(Partial):
 
         Parameters
         ----------
-        *callbacks : `callable` or `Partial`'s
+        *callbacks : callable or `Partial`'s
             Partials to be called in sequence as listed.
         """
         partials = [c if isinstance(c, Partial) else ForEachPartial(c)
@@ -121,10 +121,10 @@ class StorePartial(Partial):
 
         Parameters
         ----------
-        results : `list`, optional
+        results : list, optional
             List in which to store the partial results.
             Default: new list (``[]``)
-        results : `callable`, optional
+        results : callable, optional
             Function to be called on all incomming results before storage.
             Default: copy
 
@@ -191,7 +191,7 @@ class ForEachPartial(Partial):
 
         Parameters
         ----------
-        function : `callable`
+        function : callable
             Function to call for each iteration
         """
         assert callable(function)
@@ -221,7 +221,7 @@ class PrintIterationPartial(Partial):
 
         Parameters
         ----------
-        text : `str`
+        text : string
             Text to display before the iteration count. Default: 'iter ='
         """
         self.text = text if text is not None else self._default_text
@@ -278,7 +278,7 @@ class ShowPartial(Partial):
 
         Parameters
         ----------
-        display_step : positive `int`, optional
+        display_step : positive int, optional
             Number of iterations between plots. Default: 1
 
         Other Parameters

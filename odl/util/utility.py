@@ -121,7 +121,7 @@ def arraynd_str(array, nprint=None):
 
     Parameters
     ----------
-    array : `array-like`
+    array : array-like
         The array to print
     nprint : int
         Maximum number of elements to print.
@@ -158,7 +158,7 @@ def arraynd_str(array, nprint=None):
 
 
 def dtype_repr(dtype):
-    """Stringification of data type with default for `int` and `float`."""
+    """Stringification of data type with default for int and float."""
     if dtype == np.dtype(int):
         return "'int'"
     elif dtype == np.dtype(float):
@@ -210,32 +210,32 @@ def with_metaclass(meta, *bases):
 
 
 def is_scalar_dtype(dtype):
-    """`True` if ``dtype`` is scalar, else `False`."""
+    """True if ``dtype`` is scalar, False otherwise."""
     return np.issubsctype(dtype, np.number)
 
 
 def is_int_dtype(dtype):
-    """`True` if ``dtype`` is integer, else `False`."""
+    """True if ``dtype`` is integer, False otherwise."""
     return np.issubsctype(dtype, np.integer)
 
 
 def is_floating_dtype(dtype):
-    """`True` if ``dtype`` is floating-point, else `False`."""
+    """True if ``dtype`` is floating-point, False otherwise."""
     return is_real_floating_dtype(dtype) or is_complex_floating_dtype(dtype)
 
 
 def is_real_dtype(dtype):
-    """`True` if ``dtype`` is real (including integer), else `False`."""
+    """True if ``dtype`` is real (including integer), False otherwise."""
     return is_scalar_dtype(dtype) and not is_complex_floating_dtype(dtype)
 
 
 def is_real_floating_dtype(dtype):
-    """`True` if ``dtype`` is real floating-point, else `False`."""
+    """True if ``dtype`` is real floating-point, False otherwise."""
     return np.issubsctype(dtype, np.floating)
 
 
 def is_complex_floating_dtype(dtype):
-    """`True` if ``dtype`` is complex floating-point, else `False`."""
+    """True if ``dtype`` is complex floating-point, False otherwise."""
     return np.issubsctype(dtype, np.complexfloating)
 
 
@@ -244,13 +244,13 @@ def conj_exponent(exp):
 
     Parameters
     ----------
-    exp : positive `float` or inf
+    exp : positive float or inf
         Exponent for which to calculate the conjugate. Must be
         at least 1.0.
 
     Returns
     -------
-    conj : positive `float` or inf
+    conj : positive float or inf
         Conjugate exponent. For ``exp=1``, return ``float('inf')``,
         for ``exp=float('inf')`` return 1. In all other cases, return
         ``exp / (exp - 1)``.
@@ -355,17 +355,17 @@ def normalized_index_expression(indices, shape, int_to_slice=False):
 
     Parameters
     ----------
-    indices : `int`, `slice` or `sequence` of those
+    indices : int, slice or sequence of those
         Index expression to be normalized
-    shape : `sequence` of `int`
+    shape : sequence of int
         Target shape for error checking of out-of-bounds indices.
         Also needed to determine the number of axes.
-    int_to_slice : `bool`, optional
-        If `True`, turn integers into corresponding slice objects.
+    int_to_slice : bool, optional
+        If True, turn integers into corresponding slice objects.
 
     Returns
     -------
-    normalized : `tuple` of `slice`
+    normalized : tuple of slice
         Normalized index expression
     """
     ndim = len(shape)

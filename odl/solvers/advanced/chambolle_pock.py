@@ -67,45 +67,45 @@ def chambolle_pock_solver(op, x, tau, sigma, proximal_primal, proximal_dual,
         and range Y
     x : element in the domain of ``op``
         Starting point of the iteration
-    tau : positive `float`
+    tau : positive float
         Step size parameter for the update of the primal variable x.
         Controls the extent to which ``proximal_primal`` maps points
         towards the minimum of G.
-    sigma : positive `float`
+    sigma : positive float
         Step size parameter for the update of the dual variable y. Controls
         the extent to which ``proximal_dual`` maps points towards the
         minimum of F^*.
-    proximal_primal : `callable`
+    proximal_primal : callable
         Evaluated at ``tau``, the function returns the proximal operator,
         prox[tau * G](x), of the functional G. The domain of G and its
         proximal operator instance are the space, X, of the primal variable
         x  i.e. the domain of ``op``.
-    proximal_dual : `callable`
+    proximal_dual : callable
         Evaluated at ``sigma``, the function returns the proximal operator,
         prox[sigma * F^*](x), of the convex conjugate, F^*, of the function
         F. The domain of F^* and its proximal operator instance are the
         space, Y, of the dual variable y i.e. the range of ``op``.
-    niter : non-negative `int`, optional
+    niter : non-negative int, optional
         Number of iterations
 
     Other Parameters
     ----------------
-    theta : `float` in [0, 1], optional
+    theta : float in [0, 1], optional
         Relaxation parameter. Default: 1
-    gamma : non-negative `float`, optional
-        Acceleration parameter. If not `None` overwrites ``theta`` and uses
+    gamma : non-negative float, optional
+        Acceleration parameter. If not None overwrites ``theta`` and uses
         variable relaxation parameter and step sizes with ``tau`` and
         ``sigma`` as initial values. Requires G or F^* to be uniformly
-        convex. Default: `None`
+        convex. Default: None
     partial : `Partial`, optional
-        If not `None` the `Partial` instance(s) are executed in each
-        iteration, e.g. plotting each iterate. Default: `None`
+        If not None the `Partial` instance(s) are executed in each
+        iteration, e.g. plotting each iterate. Default: None
     x_relax : element in the domain of ``op``, optional
-        Required to resume iteration. If `None` it is a copy of the primal
-        variable x. Default: `None`
+        Required to resume iteration. If None it is a copy of the primal
+        variable x. Default: None
     y : element in the range of ``op``, optional
-        Required to resume iteration. If `None` it is set to a zero element
-        in Y which is the range of ``op``. Default: `None`
+        Required to resume iteration. If None it is set to a zero element
+        in Y which is the range of ``op``. Default: None
 
     Notes
     -----

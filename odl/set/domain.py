@@ -52,9 +52,9 @@ class IntervalProd(Set):
 
         Parameters
         ----------
-        begin : `array-like` or `float`
+        begin : array-like or float
             The lower ends of the intervals in the product
-        end : `array-like` or `float`
+        end : array-like or float
             The upper ends of the intervals in the product
 
         Examples
@@ -153,7 +153,7 @@ class IntervalProd(Set):
 
         Parameters
         ----------
-        inp : `float` or array-like, optional
+        inp : float or array-like, optional
             Point to be cast to an element in self
 
         Returns
@@ -188,9 +188,9 @@ class IntervalProd(Set):
 
         Parameters
         ----------
-        other : `object`
+        other :
             The object to be tested
-        tol : `float`
+        tol : float
             The maximum allowed difference in 'inf'-norm between the
             interval endpoints.
 
@@ -221,11 +221,11 @@ class IntervalProd(Set):
 
         Parameters
         ----------
-        point : `array-like` or `float`
+        point : array-like or float
             The point to be tested. Its length must be equal
             to the set's dimension. In the 1d case, 'point'
-            can be given as a `float`.
-        tol : `float`
+            can be given as a float.
+        tol : float
             The maximum allowed distance in 'inf'-norm between the
             point and the set.
             Default: 0.0
@@ -258,7 +258,7 @@ class IntervalProd(Set):
 
         Returns
         -------
-        containts : `bool`
+        containts : bool
             True if other is inside self.
 
         Examples
@@ -289,7 +289,7 @@ class IntervalProd(Set):
         other : `Set`
             The set to be tested. It must implement a ``min()`` and a
             ``max()`` method, otherwise a `TypeError` is raised.
-        tol : `float`, optional
+        tol : float, optional
             The maximum allowed distance in 'inf'-norm between the
             other set and this interval product.
             Default: 0.0
@@ -324,8 +324,8 @@ class IntervalProd(Set):
 
         Returns
         -------
-        contains : `bool`
-            `True` if all points are contained, `False` otherwise
+        contains : bool
+            True if all points are contained, False otherwise
 
         Examples
         --------
@@ -394,7 +394,7 @@ class IntervalProd(Set):
 
         Parameters
         ----------
-        ndim : `int`, optional
+        ndim : int, optional
               The dimension of the measure to apply.
               Default: `true_ndim`
 
@@ -431,15 +431,15 @@ class IntervalProd(Set):
 
         Parameters
         ----------
-        point : `array-like` or `float`
+        point : array-like or float
                 The point. Its length must be equal to the set's
-                dimension. Can be a `float` in the 1d case.
-        exponent : non-zero `float` or ``float('inf')``, optional
+                dimension. Can be a float in the 1d case.
+        exponent : non-zero float or ``float('inf')``, optional
               The order of the norm (see `numpy.linalg.norm`)
 
         Returns
         -------
-        dist : `float`
+        dist : float
             Distance to the interior of the IntervalProd.
             Points strictly inside have distance ``0.0``, points with
             ``NaN`` have distance ``infinity``.
@@ -483,9 +483,9 @@ class IntervalProd(Set):
 
         Parameters
         ----------
-        indices : `int` or `tuple` of `int`
+        indices : int or tuple of int
             The indices of the dimensions along which to collapse
-        values : `array-like` or `float`
+        values : array-like or float
             The values to which to collapse. Must have the same
             length as ``indices``. Values must lie within the interval
             boundaries.
@@ -568,7 +568,7 @@ class IntervalProd(Set):
 
         Parameters
         ----------
-        index : `int`
+        index : int
             Index of the dimension before which ``other`` is to
             be inserted. Must fulfill ``-ndim <= index <= ndim``.
             Negative indices count backwards from ``self.ndim``.
@@ -617,8 +617,8 @@ class IntervalProd(Set):
 
         Parameters
         ----------
-        other : `IntervalProd`, `float` or array-like
-            The set to be inserted. A `float` or array a is
+        other : `IntervalProd`, float or array-like
+            The set to be inserted. A float or array a is
             treated as an ``IntervalProd(a, a)``.
 
         Examples
@@ -645,7 +645,7 @@ class IntervalProd(Set):
 
         Returns
         -------
-        corners : `numpy.ndarray`
+        corners : numpy.ndarray
             The size of the array is ``2^m * ndim``, where ``m``
             is the number of non-degenerate axes, i.e. the corners are
             stored as rows.
@@ -821,9 +821,9 @@ def Interval(begin, end):
 
     Parameters
     ----------
-    begin : `array-like`, shape ``(1,)``, or `float`
+    begin : array-like, shape ``(1,)``, or float
         The lower ends of the intervals in the product
-    end : `array-like`, shape ``(1,)``, or `float`
+    end : array-like, shape ``(1,)``, or float
         The upper ends of the intervals in the product
 
     """
@@ -839,9 +839,9 @@ def Rectangle(begin, end):
 
     Parameters
     ----------
-    begin : `array-like`, shape ``(2,)``
+    begin : array-like, shape ``(2,)``
         The lower ends of the intervals in the product
-    end : `array-like`, shape ``(2,)``
+    end : array-like, shape ``(2,)``
         The upper ends of the intervals in the product
     """
     rectangle = IntervalProd(begin, end)
@@ -856,9 +856,9 @@ def Cuboid(begin, end):
 
     Parameters
     ----------
-    begin : `array-like`, shape ``(3,)``
+    begin : array-like, shape ``(3,)``
         The lower ends of the intervals in the product
-    end : `array-like`, shape ``(3,)``
+    end : array-like, shape ``(3,)``
         The upper ends of the intervals in the product
     """
     cuboid = IntervalProd(begin, end)

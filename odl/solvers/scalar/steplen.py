@@ -45,16 +45,16 @@ class StepLength(with_metaclass(ABCMeta, object)):
 
         Parameters
         ----------
-        x : `Operator.domain` `element`
+        x : `Operator.domain` element
             The current point
-        direction : `Operator.domain` `element`
+        direction : `Operator.domain` element
             Search direction in which the line search should be computed
-        dir_derivative : `float`
+        dir_derivative : float
             Directional derivative along the ``direction``
 
         Returns
         -------
-        step : `float`
+        step : float
             The step length
         """
 
@@ -69,16 +69,16 @@ class LineSearch(with_metaclass(ABCMeta, object)):
 
         Parameters
         ----------
-        x : `Operator.domain` `element`
+        x : `Operator.domain` element
             The current point
-        direction : `Operator.domain` `element`
+        direction : `Operator.domain` element
             Search direction in which the line search should be computed
-        dir_derivative : `float`
+        dir_derivative : float
             Directional derivative along the ``direction``
 
         Returns
         -------
-        step : `float`
+        step : float
             The step length
         """
 
@@ -103,18 +103,18 @@ class BacktrackingLineSearch(LineSearch):
 
         Parameters
         ----------
-        function : `callable`
+        function : callable
             The cost function of the optimization problem to be solved.
-        tau : `float`, optional
+        tau : float, optional
             The amount the step length is decreased in each iteration,
             as long as it does not fulfill the decrease condition.
             The step length is updated as ``step_length *= tau``
-        c : `float`, optional
+        c : float, optional
             The 'discount factor' on the
             ``step length * direction derivative``,
             which the new point needs to be smaller than in order to
             fulfill the condition and be accepted (see the references).
-        max_num_iter : `int`, optional
+        max_num_iter : int, optional
             Maximum number of iterations allowed each time the line
             search method is called. If not set, this number  is
             calculated to allow a shortest step length of 0.0001.
@@ -135,16 +135,16 @@ class BacktrackingLineSearch(LineSearch):
 
         Parameters
         ----------
-        x : `Operator.domain` `element`
+        x : `Operator.domain` element
             The current point
-        direction : `Operator.domain` `element`
+        direction : `Operator.domain` element
             Search direction in which the line search should be computed
-        dir_derivative : `float`
+        dir_derivative : float
             Directional derivative along the ``direction``
 
         Returns
         -------
-        step : `float`
+        step : float
             The computed step length
         """
         alpha = 1.0
@@ -190,7 +190,7 @@ class ConstantLineSearch(LineSearch):
 
         Parameters
         ----------
-        constant : `float`
+        constant : float
             The constant step length
         """
         self.constant = constant
@@ -200,16 +200,16 @@ class ConstantLineSearch(LineSearch):
 
         Parameters
         ----------
-        x : `Operator.domain` `element`
+        x : `Operator.domain` element
             The current point
-        direction : `Operator.domain` `element`
+        direction : `Operator.domain` element
             Search direction in which the line search should be computed
-        dir_derivative : `float`
+        dir_derivative : float
             Directional derivative along the ``direction``
 
         Returns
         -------
-        step : `float`
+        step : float
             The constant step length
         """
         return self.constant
@@ -232,7 +232,7 @@ class BarzilaiBorweinStep(object):
         ----------
         gradf : `Operator`
             The gradient of the objective function at a point
-        step0 : `float`, optional
+        step0 : float, optional
             Initial step length parameter
         """
         self.gradf = gradf
@@ -243,14 +243,14 @@ class BarzilaiBorweinStep(object):
 
         Parameters
         ----------
-        x : `Operator.domain` `element`
+        x : `Operator.domain` element
             The current point
-        x0 : `Operator.domain` `element`
+        x0 : `Operator.domain` element
             The previous point
 
         Returns
         -------
-        step : `float`
+        step : float
             The step length
         """
         if x == x0:

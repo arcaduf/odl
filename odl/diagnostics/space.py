@@ -69,7 +69,7 @@ class SpaceTest(object):
         ----------
         space : `LinearSpace`
             The space that should be tested
-        eps : `float`, optional
+        eps : float, optional
             Precision of the tests.
         """
         self.space = space

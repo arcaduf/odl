@@ -427,10 +427,10 @@ def submarine_phantom(discr, smooth=True, taper=20.0):
     ----------
     discr : `DiscreteLp`
         Discretized space in which the phantom is supposed to be created
-    smooth : `bool`, optional
-        If `True`, the boundaries are smoothed out. Otherwise, the
+    smooth : bool, optional
+        If True, the boundaries are smoothed out. Otherwise, the
         function steps from 0 to 1 at the boundaries.
-    taper : `float`, optional
+    taper : float, optional
         Tapering parameter for the boundary smoothing. Larger values
         mean faster taper, i.e. sharper boundaries.
 
@@ -547,10 +547,10 @@ def cuboid(discr_space, begin, end):
     ----------
     discr_space : `DiscretizedSpace`
         Discretized space in which the phantom is supposed to be created
-    begin : array-like or `float` in [0, 1]
+    begin : array-like or float in [0, 1]
         The lower left corner of the cuboid within the space grid relative
         to the extend of the grid
-    end : array-like or `float` in [0, 1]
+    end : array-like or float in [0, 1]
         The upper right corner of the cuboid within the space grid relative
         to the extend of the grid
 
@@ -607,7 +607,7 @@ def indicate_proj_axis(discr_space, scale_structures=0.5):
     ----------
     discr_space : `DiscretizedSpace`
         Discretized space in which the phantom is supposed to be created
-    scale_structures : positive `float` in (0, 1]
+    scale_structures : positive float in (0, 1]
         Scales objects (cube, cuboids)
 
     Returns

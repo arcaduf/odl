@@ -42,7 +42,7 @@ def matrix_representation(op):
 
     Returns
     ----------
-    matrix : `numpy.ndarray`
+    matrix : numpy.ndarray
         The matrix representation of the operator.
 
     Notes
@@ -128,15 +128,15 @@ def power_method_opnorm(op, niter, xstart=None):
         range does not coincide with its `Operator.domain`, an
         `Operator.adjoint` must be defined (which implies that the
         operator must be linear).
-    niter : positive `int`
+    niter : positive int
         Number of iterations to perform
-    xstart : `Operator.domain` `element`, optional
+    xstart : `Operator.domain` element, optional
         Starting point of the iteration. By default, the ``one``
         element of the `Operator.domain` is used.
 
     Returns
     -------
-    est_norm : `float`
+    est_norm : float
         The estimated operator norm
     """
     if op.domain == op.range:

@@ -97,9 +97,9 @@ class CudaNtuples(NtuplesBase):
 
         Parameters
         ----------
-        size : `int`
+        size : int
             The number entries per tuple
-        dtype : `object`
+        dtype :
             The data type for each tuple entry. Can be provided in any
             way the `numpy.dtype` function understands, most notably
             as built-in type, as one of NumPy's internal datatype
@@ -121,10 +121,10 @@ class CudaNtuples(NtuplesBase):
 
         Parameters
         ----------
-        inp : `array-like` or scalar, optional
+        inp : array-like or scalar, optional
             Input to initialize the new element.
 
-            If ``inp`` is a `numpy.ndarray` of shape ``(size,)``
+            If ``inp`` is a numpy.ndarray of shape ``(size,)``
             and the same data type as this space, the array is wrapped,
             not copied.
             Other array-like objects are copied (with broadcasting
@@ -132,11 +132,11 @@ class CudaNtuples(NtuplesBase):
 
             If a single value is given, it is copied to all entries.
 
-            If both ``inp`` and ``data_ptr`` are `None`, an empty
+            If both ``inp`` and ``data_ptr`` are None, an empty
             element is created with no guarantee of its state
             (memory allocation only).
 
-        data_ptr : `int`, optional
+        data_ptr : int, optional
             Memory address of a CUDA array container
 
             Cannot be combined with ``inp``.
@@ -246,9 +246,9 @@ class CudaNtuplesVector(NtuplesBaseVector, LinearSpaceVector):
 
         Returns
         -------
-        equals : `bool`
-            `True` if all elements of ``other`` are equal to this
-            vector's elements, `False` otherwise
+        equals : bool
+            True if all elements of ``other`` are equal to this
+            vector's elements, False otherwise
 
         Examples
         --------
@@ -300,20 +300,20 @@ class CudaNtuplesVector(NtuplesBaseVector, LinearSpaceVector):
 
         Parameters
         ----------
-        start : `int`, optional
+        start : int, optional
             Start position. None means the first element.
-        start : `int`, optional
+        start : int, optional
             One element past the last element to be extracted.
             None means the last element.
-        start : `int`, optional
+        start : int, optional
             Step length. None means 1.
-        out : `numpy.ndarray`
+        out : numpy.ndarray
             Array in which the result should be written in-place.
             Has to be contiguous and of the correct dtype.
 
         Returns
         -------
-        asarray : `numpy.ndarray`
+        asarray : numpy.ndarray
             Numpy array of the same type as the space.
 
         Examples
@@ -348,7 +348,7 @@ class CudaNtuplesVector(NtuplesBaseVector, LinearSpaceVector):
 
         Parameters
         ----------
-        indices : `int` or `slice`
+        indices : int or slice
             The position(s) that should be accessed
 
         Returns
@@ -392,20 +392,20 @@ class CudaNtuplesVector(NtuplesBaseVector, LinearSpaceVector):
 
         Parameters
         ----------
-        indices : `int` or `slice`
+        indices : int or slice
             The position(s) that should be set
-        values : scalar, `array-like` or `CudaNtuplesVector`
+        values : scalar, array-like or `CudaNtuplesVector`
             The value(s) that are to be assigned.
 
-            If ``index`` is an `int`, ``value`` must be single value.
+            If ``index`` is an int, ``value`` must be single value.
 
-            If ``index`` is a `slice`, ``value`` must be broadcastable
+            If ``index`` is a slice, ``value`` must be broadcastable
             to the size of the slice (same size, shape (1,)
             or single value).
 
         Returns
         -------
-        `None`
+        None
 
         Examples
         --------
@@ -503,9 +503,9 @@ class CudaFn(FnBase, CudaNtuples):
 
         Parameters
         ----------
-        size : positive `int`
+        size : positive int
             The number of dimensions of the space
-        dtype : `object`
+        dtype :
             The data type of the storage array. Can be provided in any
             way the `numpy.dtype` function understands, most notably
             as built-in type, as one of NumPy's internal datatype
@@ -521,10 +521,10 @@ class CudaFn(FnBase, CudaNtuples):
             Use this weighting as-is. Compatibility with this
             space's elements is not checked during init.
 
-            `float` :
+            float :
             Weighting by a constant
 
-            `array-like` :
+            array-like :
             Weighting by a vector (1-dim. array, corresponds to
             a diagonal matrix). Note that the array is stored in
             main memory, which results in slower space functions
@@ -540,7 +540,7 @@ class CudaFn(FnBase, CudaNtuples):
             This option cannot be combined with ``dist``, ``norm``
             or ``inner``.
 
-        exponent : positive `float`, optional
+        exponent : positive float, optional
             Exponent of the norm. For values other than 2.0, no
             inner product is defined.
 
@@ -549,7 +549,7 @@ class CudaFn(FnBase, CudaNtuples):
 
             Default: 2.0
 
-        dist : `callable`, optional
+        dist : callable, optional
             The distance function defining a metric on the space.
             It must accept two `FnVector` arguments and
             fulfill the following mathematical conditions for any
@@ -563,9 +563,9 @@ class CudaFn(FnBase, CudaNtuples):
             This option cannot be combined with ``weight``,
             ``norm`` or ``inner``.
 
-        norm : `callable`, optional
+        norm : callable, optional
             The norm implementation. It must accept an
-            `FnVector` argument, return a `float` and satisfy the
+            `FnVector` argument, return a float and satisfy the
             following conditions for all vectors ``x, y`` and scalars
             ``s``:
 
@@ -579,7 +579,7 @@ class CudaFn(FnBase, CudaNtuples):
             This option cannot be combined with ``weight``,
             ``dist`` or ``inner``.
 
-        inner : `callable`, optional
+        inner : callable, optional
             The inner product implementation. It must accept two
             `FnVector` arguments, return a element from
             the field of the space (real or complex number) and
@@ -647,7 +647,7 @@ class CudaFn(FnBase, CudaNtuples):
 
     @property
     def is_weighted(self):
-        """Return `True` if the weighting is not `CudaFnNoWeighting`."""
+        """Return True if the weighting is not `CudaFnNoWeighting`."""
         return not isinstance(self.weighting, CudaFnNoWeighting)
 
     @staticmethod
@@ -680,7 +680,7 @@ class CudaFn(FnBase, CudaNtuples):
 
         Parameters
         ----------
-        a, b : `LinearSpace.field` `element`
+        a, b : `LinearSpace.field` element
             Scalar to multiply ``x`` and ``y`` with.
         x, y : `CudaFnVector`
             The summands
@@ -689,7 +689,7 @@ class CudaFn(FnBase, CudaNtuples):
 
         Returns
         -------
-        `None`
+        None
 
         Examples
         --------
@@ -713,7 +713,7 @@ class CudaFn(FnBase, CudaNtuples):
 
         Returns
         -------
-        inner: `float` or `complex`
+        inner: float or complex
             The inner product of x and y
 
 
@@ -737,7 +737,7 @@ class CudaFn(FnBase, CudaNtuples):
 
         Returns
         -------
-        dist : `float`
+        dist : float
             Distance between the vectors
 
         Examples
@@ -762,7 +762,7 @@ class CudaFn(FnBase, CudaNtuples):
 
         Returns
         -------
-        norm : `float`
+        norm : float
             The norm of x
 
         Examples
@@ -791,7 +791,7 @@ class CudaFn(FnBase, CudaNtuples):
 
         Returns
         -------
-        `None`
+        None
 
         Examples
         --------
@@ -853,10 +853,10 @@ class CudaFn(FnBase, CudaNtuples):
 
         Returns
         -------
-        equals : `bool`
-            `True` if other is an instance of this space's type
+        equals : bool
+            True if other is an instance of this space's type
             with the same ``size``, ``dtype`` and space functions,
-            otherwise `False`.
+            False otherwise.
 
         Examples
         --------
@@ -935,7 +935,7 @@ def CudaRn(size, dtype='float32', **kwargs):
 
     Parameters
     ----------
-    size : positive `int`
+    size : positive int
         The number of dimensions of the space
     dtype : optional
         The data type of the storage array. Can be provided in any
@@ -988,14 +988,14 @@ def cu_weighted_inner(weight):
 
     Parameters
     ----------
-    weight : scalar, `array-like` or `CudaFnVector`
+    weight : scalar, array-like or `CudaFnVector`
         Weight of the inner product. A scalar is interpreted as a
         constant weight and a 1-dim. array or a `CudaFnVector`
         as a weighting vector.
 
     Returns
     -------
-    inner : `callable`
+    inner : callable
         Inner product function with given weight. Constant weightings
         are applicable to spaces of any size, for arrays the sizes
         of the weighting and the space must match.
@@ -1012,17 +1012,17 @@ def cu_weighted_norm(weight, exponent=2.0):
 
     Parameters
     ----------
-    weight : scalar, `array-like` or `CudaFnVector`
+    weight : scalar, array-like or `CudaFnVector`
         Weight of the inner product. A scalar is interpreted as a
         constant weight and a 1-dim. array or a `CudaFnVector`
         as a weighting vector.
-    exponent : positive `float`
+    exponent : positive float
         Exponent of the norm. If ``weight`` is a sparse matrix, only
         1.0, 2.0 and ``inf`` are allowed.
 
     Returns
     -------
-    norm : `callable`
+    norm : callable
         Norm function with given weight. Constant weightings
         are applicable to spaces of any size, for arrays the sizes
         of the weighting and the space must match.
@@ -1039,16 +1039,16 @@ def cu_weighted_dist(weight, exponent=2.0):
 
     Parameters
     ----------
-    weight : scalar, `array-like` or `CudaFnVector`
+    weight : scalar, array-like or `CudaFnVector`
         Weight of the inner product. A scalar is interpreted as a
         constant weight and a 1-dim. array or a `CudaFnVector`
         as a weighting vector.
-    exponent : positive `float`
+    exponent : positive float
         Exponent of the distance
 
     Returns
     -------
-    dist : `callable`
+    dist : callable
         Distance function with given weight. Constant weightings
         are applicable to spaces of any size, for arrays the sizes
         of the weighting and the space must match.
@@ -1145,7 +1145,7 @@ class CudaFnVectorWeighting(VectorWeightingBase):
         ----------
         vector : `CudaFnVector`
             Weighting vector of the inner product, norm and distance
-        exponent : positive `float`
+        exponent : positive float
             Exponent of the norm. For values other than 2.0, the inner
             product is not defined.
         """
@@ -1166,7 +1166,7 @@ class CudaFnVectorWeighting(VectorWeightingBase):
 
         Returns
         -------
-        inner : `float` or `complex`
+        inner : float or complex
             The inner product of the two provided vectors
         """
         if self.exponent != 2.0:
@@ -1186,7 +1186,7 @@ class CudaFnVectorWeighting(VectorWeightingBase):
 
         Returns
         -------
-        norm : `float`
+        norm : float
             The norm of the provided vector
         """
         if self.exponent == float('inf'):
@@ -1204,7 +1204,7 @@ class CudaFnVectorWeighting(VectorWeightingBase):
 
         Returns
         -------
-        dist : `float`
+        dist : float
             The distance between the vectors
         """
         if self.exponent == float('inf'):
@@ -1249,9 +1249,9 @@ class CudaFnConstWeighting(ConstWeightingBase):
 
         Parameters
         ----------
-        constant : positive finite `float`
+        constant : positive finite float
             Weighting constant of the inner product.
-        exponent : positive `float`
+        exponent : positive float
             Exponent of the norm. For values other than 2.0, the inner
             product is not defined.
         """
@@ -1268,7 +1268,7 @@ class CudaFnConstWeighting(ConstWeightingBase):
 
         Returns
         -------
-        inner : `float` or `complex`
+        inner : float or complex
             The inner product of the two vectors
         """
         if self.exponent != 2.0:
@@ -1288,7 +1288,7 @@ class CudaFnConstWeighting(ConstWeightingBase):
 
         Returns
         -------
-        norm : `float`
+        norm : float
             The norm of the vector
         """
         if self.exponent == float('inf'):
@@ -1309,7 +1309,7 @@ class CudaFnConstWeighting(ConstWeightingBase):
 
         Returns
         -------
-        dist : `float`
+        dist : float
             The distance between the vectors
         """
         if self.exponent == float('inf'):
@@ -1355,7 +1355,7 @@ class CudaFnNoWeighting(NoWeightingBase, CudaFnConstWeighting):
 
         Parameters
         ----------
-        exponent : positive `float`
+        exponent : positive float
             Exponent of the norm. For values other than 2.0, the inner
             product is not defined.
         """
@@ -1372,7 +1372,7 @@ class CudaFnCustomInnerProduct(CustomInnerProductBase):
 
         Parameters
         ----------
-        inner : `callable`
+        inner : callable
             The inner product implementation. It must accept two
             `FnVector` arguments, return an element from their space's
             field (real or complex number) and satisfy the following
@@ -1382,7 +1382,7 @@ class CudaFnCustomInnerProduct(CustomInnerProductBase):
             - ``<s*x + y, z> = s * <x, z> + <y, z>``
             - ``<x, x> = 0``  if and only if  ``x = 0``
 
-        dist_using_inner : `bool`, optional
+        dist_using_inner : bool, optional
             Calculate ``dist`` using the following formula::
 
                 ||x - y||^2 = ||x||^2 + ||y||^2 - 2 * Re <x, y>
@@ -1407,9 +1407,9 @@ class CudaFnCustomNorm(CustomNormBase):
 
         Parameters
         ----------
-        norm : `callable`
+        norm : callable
             The norm implementation. It must accept a `CudaFnVector`
-            argument, return a `float` and satisfy the following
+            argument, return a float and satisfy the following
             conditions for all vectors ``x, y`` and scalars ``s``:
 
             - ``||x|| >= 0``
@@ -1432,9 +1432,9 @@ class CudaFnCustomDist(CustomDistBase):
 
         Parameters
         ----------
-        dist : `callable`
+        dist : callable
             The distance function defining a metric on `Fn`. It must
-            accept two `FnVector` arguments, return a `float` and and
+            accept two `FnVector` arguments, return a float and and
             fulfill the following mathematical conditions for any three
             vectors ``x, y, z``:
 

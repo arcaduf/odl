@@ -101,7 +101,7 @@ class ProductSpaceOperator(Operator):
 
         Parameters
         ----------
-        operators : `array-like`
+        operators : array-like
             An array of `Operator`'s
         dom : `ProductSpace`, optional
             Domain of the operator. If not provided, it is tried to be
@@ -208,14 +208,14 @@ class ProductSpaceOperator(Operator):
 
         Parameters
         ----------
-        x : domain `element`
+        x : domain element
             input vector to be evaluated
-        out : range `element`, optional
+        out : range element, optional
             output vector to write result to
 
         Returns
         -------
-        out : range `element`
+        out : range element
             Result of the evaluation. If ``out`` was provided, the
             returned object is a reference to it.
 
@@ -235,7 +235,7 @@ class ProductSpaceOperator(Operator):
             [5.0, 7.0, 9.0]
         ])
 
-        Diagonal operator -- 0 or `None` means ignore, or the implicit
+        Diagonal operator -- 0 or None means ignore, or the implicit
         zero operator:
 
         >>> prod_op = ProductSpaceOperator([[I, 0], [0, I]])
@@ -416,9 +416,9 @@ class ComponentProjection(Operator):
         ----------
         space : `ProductSpace`
             The space to project from
-        index : `int`, `slice`, or `iterable` [int]
+        index : int, slice, or iterable [int]
             The indices defining the subspace. If ``index`` is not
-            and `int`, the `Operator.range` of this
+            and int, the `Operator.range` of this
             operator is also a `ProductSpace`.
 
         Examples
@@ -454,14 +454,14 @@ class ComponentProjection(Operator):
 
         Parameters
         ----------
-        x : domain `element`
+        x : domain element
             input vector to be projected
-        out : range `element`, optional
+        out : range element, optional
             output vector to write result to
 
         Returns
         -------
-        out : range `element`
+        out : range element
             Projection of x onto subspace. If ``out`` was provided, the
             returned object is a reference to it.
 
@@ -529,7 +529,7 @@ class ComponentProjectionAdjoint(Operator):
         ----------
         space : `ProductSpace`
             The space to project to
-        index : `int`, `slice`, or `iterable` [int]
+        index : int, slice, or iterable [int]
             The indexes to project from
 
         Examples
@@ -565,14 +565,14 @@ class ComponentProjectionAdjoint(Operator):
 
         Parameters
         ----------
-        x : domain `element`
+        x : domain element
             Input vector to be extended
-        out : range `element`, optional
+        out : range element, optional
             output vector to write result to
 
         Returns
         -------
-        out : range `element`
+        out : range element
             Extension of x to superspace. If ``out`` was provided, the
             returned object is a reference to it.
 
