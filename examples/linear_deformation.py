@@ -11,37 +11,8 @@ from numbers import Number
 from odl.operator.operator import Operator, OperatorComp
 import odl
 import numpy as np
-from functools import partial
 import time
 standard_library.install_aliases()
-
-
-# Computing deformation at point x
-def gaussian_kernel_matrix(grid, sigma):
-    """Return the kernel matrix for Gaussian kernel.
-
-    The Gaussian kernel matrix ``K`` in ``n`` dimensions is defined as::
-
-        k_ij = exp(- |x_i - x_j|^2 / (2 * sigma^2))
-
-    where ``x_i, x_j`` runs through all grid points. The final matrix
-    has size ``N x N``, where ``N`` is the total number of grid points.
-
-    Parameters
-    ----------
-    grid : `RegularGrid`
-        Grid where the control points are defined
-    sigma : `float`
-        Width of the Gaussian kernel
-    """
-    point_arrs = grid.points().T
-    matrices = [parr[:, None] - parr[None, :] for parr in point_arrs]
-    for mat in matrices:
-        mat *= mat
-
-    sq_sum = np.sqrt(np.sum(mat for mat in matrices))
-    kernel_matrix = np.exp(-sq_sum / (2 * sigma ** 2))
-    return kernel_matrix
 
 
 class Functional(Operator):
@@ -325,7 +296,7 @@ class DisplacementOperator(Operator):
         """Spatial sampling grid of the image space."""
         return discr_space.grid
 
-    def displacement_fft_zero_padding(self, alphas):
+    def displacement_ft(self, alphas):
         """Calculate the inverse translation at point y by n-D FFT.
 
         inverse displacement: v(y)
@@ -341,7 +312,7 @@ class DisplacementOperator(Operator):
         """
         ft_momenta = vectorial_ft_fit_op(alphas)
         ft_displacement = self.ft_kernel * ft_momenta
-        return vectorial_ft_fit_op_inverse(ft_displacement)
+        return vectorial_ft_fit_op.inverse(ft_displacement)
         # scaling
 #        return (vectorial_ft_op_inverse(ft_displacement) /
 #                self.discr_space.cell_volume * 2.0 * np.pi)
@@ -361,7 +332,7 @@ class DisplacementOperator(Operator):
             Element where the result is stored
         """
 
-        return self.displacement_fft_zero_padding(alphas)
+        return self.displacement_ft(alphas)
 
     def derivative(self, alphas):
         """Frechet derivative of this operator in ``alphas``.
@@ -429,7 +400,7 @@ class DisplacementDerivative(DisplacementOperator):
             points. It should be in the same space as alpha.
         """
 
-        return self.displacement_fft_zero_padding(betas)
+        return self.displacement_ft(betas)
 
     @property
     def adjoint(self):
@@ -481,7 +452,7 @@ class DisplacementDerivativeAdjoint(DisplacementDerivative):
         # If control grid is not the image grid, the following result for
         # the ajoint is not right. Because the kernel matrix in fitting
         # term is not symmetric.
-        return self.displacement_fft_zero_padding(grad_func)
+        return self.displacement_ft(grad_func)
 
 
 class LinearizedDeformationOperator(Operator):
@@ -529,6 +500,7 @@ class LinearizedDeformationOperator(Operator):
         """
         image_pts = self.template.space.grid.points()
         image_pts += np.asarray(displacement).T
+
         return self.template.interpolation(image_pts.T, bounds_check=False)
 
     def linear_deform(self, template, displacement):
@@ -685,7 +657,7 @@ class ShapeRegularizationFunctional(Operator):
     """
     # TODO: let user specify K
 
-    def __init__(self, par_space, kernel_op):
+    def __init__(self, par_space):
         """Initialize a new instance.
 
         Parameters
@@ -699,21 +671,22 @@ class ShapeRegularizationFunctional(Operator):
             of the kernel matrix with a given ``alpha``.
         """
         super().__init__(par_space, odl.RealNumbers(), linear=False)
-        if isinstance(kernel_op, Operator):
-            self._kernel_op = kernel_op
-        else:
-            self._kernel_op = odl.MatVecOperator(kernel_op)
+#        if isinstance(kernel_op, Operator):
+#            self._kernel_op = kernel_op
+#        else:
+#            self._kernel_op = odl.MatVecOperator(kernel_op)
         self.par_space = par_space
 
     def _call(self, alphas):
         """Return ``self(alphas)``."""
         # TODO: add out parameter
-        stack = [self._kernel_op(
-                     np.asarray(a).reshape(-1, order=self.domain[0].order))
-                 for a in alphas]
-        return sum(s.inner(s.space.element(
-                       np.asarray(a).reshape(-1, order=self.domain[0].order)))
-                   for s, a in zip(stack, alphas)) / 2
+#        stack = [self._kernel_op(
+#                     np.asarray(a).reshape(-1, order=self.domain[0].order))
+#                 for a in alphas]
+#        return sum(s.inner(s.space.element(
+#                       np.asarray(a).reshape(-1, order=self.domain[0].order)))
+#                   for s, a in zip(stack, alphas)) / 2
+        pass
 
     def _gradient(self, alphas):
         """Return the gradient at ``alphas``.
@@ -725,7 +698,7 @@ class ShapeRegularizationFunctional(Operator):
         return self.domain.element([self._kernel_op(np.asarray(a).reshape(-1))
                                     for a in alphas])
 
-    def _gradient_fft_zero_padding(self, ft_momenta, ft_kernel):
+    def _gradient_ft(self, ft_momenta, ft_kernel):
         """Return the gradient at ``alphas``.
 
         The gradient of the functional is given by
@@ -734,7 +707,7 @@ class ShapeRegularizationFunctional(Operator):
 
         This is used for the n-D case: control grid = image grid.
         """
-        return vectorial_ft_shape_op_inverse(ft_kernel * ft_momenta)
+        return vectorial_ft_shape_op.inverse(ft_kernel * ft_momenta)
 #        return (vectorial_ft_op_inverse(ft_displacement) /
 #                self.par_space[0].cell_volume * 2.0 * np.pi)
 
@@ -778,10 +751,6 @@ class L2DataMatchingFunctional(Functional):
         return self.gradient(x).T
 
 
-# Fix the sigma parameter in the kernel
-sigma = 0.2
-
-
 # Kernel function for any dimensional
 def gauss_kernel(x, sigma):
     return np.exp(-x ** 2 / (2 * sigma ** 2))
@@ -792,43 +761,142 @@ def kernel(x):
     scaled = [xi ** 2 / (2 * sigma ** 2) for xi in x]
     return np.exp(-sum(scaled))
 
-kernel1 = partial(gauss_kernel, sigma=sigma)
+
+def proj_noise(proj_data_shape, mu=0.0, sigma=0.1):
+    """Produce white Gaussian noise for projections of n-D images.
+
+       Produce white Gaussian noise for projections, with the same size
+       as the number of projections.
+
+       Parameters
+       ----------
+       proj_data_shape : shape of the projections
+           Give the size of noise
+       mu : Mean of the norm distribution
+           The defalt is 0.0
+       sigma : Standard deviation of the norm distribution
+           The defalt is 0.1.
+    """
+
+    return np.random.normal(mu, sigma, proj_data_shape)
 
 
-# Produce noise for projections of n-D images
-def proj_noise(x, y, mu=0.0, sigma=1.0):
-    return sigma * np.random.rand(x, y) + mu
-
-
-# Compute Signal-to-Noise Ratio
 def SNR(signal, noise):
+    """Compute the signal-to-noise ratio in dB.
+    This compute::
+
+    SNR = 10 * log10 (
+        |signal - mean(signal)| / |noise - mean(noise)|)
+
+    Parameters
+    ----------
+    signal : projection
+    noise : white noise
+    """
     ave1 = np.sum(signal)/signal.size
     ave2 = np.sum(noise)/noise.size
     en1 = np.sqrt(np.sum((signal - ave1) * (signal - ave1)))
     en2 = np.sqrt(np.sum((noise - ave2) * (noise - ave2)))
+
     return 10.0 * np.log10(en1/en2)
 
-# Discretization of the space
-m = 101  # Number of gridpoints for discretization
-discr_space = odl.uniform_discr([-0.5, -0.5], [0.5, 0.5], [m, m],
-                                dtype='float32', interp='linear')
 
-# Deformation space
-n = 101  # Number of gridpoints for deformation, usually n << m
-cptsspace = odl.uniform_discr([-0.5, -0.5], [0.5, 0.5], [n, n],
+def padded_ft_op(space, padding_size):
+    """Create zero-padding fft setting
+
+    Parameters
+    ----------
+    space : the space needs to do FT
+    padding_size : the percent for zero padding
+    """
+    padding_op = odl.ZeroPaddingOperator(
+        space, [padding_size for _ in range(space.ndim)])
+    shifts = [not s % 2 for s in space.shape]
+    ft_op = odl.trafos.FourierTransform(
+        padding_op.range, halfcomplex=False, shift=shifts)
+
+    return ft_op * padding_op
+
+
+def shape_kernel_ft(kernel):
+    """Compute the n-D Fourier transform of the discrete kernel ``K``.
+
+    Calculate the n-D Fourier transform of the discrete kernel ``K`` on the
+    control grid points {y_i} to its reciprocal points {xi_i}.
+    """
+
+    # Create the array of kernel values on the grid points
+    discretized_kernel = vspace.element(
+        [cptsspace.element(kernel) for _ in range(cptsspace.ndim)])
+    return vectorial_ft_shape_op(discretized_kernel)
+
+
+def fitting_kernel_ft(kernel):
+    """Compute the n-D Fourier transform of the discrete kernel ``K``.
+
+    Calculate the n-D Fourier transform of the discrete kernel ``K`` on the
+    image grid points {y_i} to its reciprocal points {xi_i}.
+
+    """
+    kspace = odl.ProductSpace(discr_space, discr_space.ndim)
+
+    # Create the array of kernel values on the grid points
+    discretized_kernel = kspace.element(
+        [discr_space.element(kernel) for _ in range(discr_space.ndim)])
+    return vectorial_ft_fit_op(discretized_kernel)
+
+
+# Fix the sigma parameter in the kernel
+sigma = 0.2
+
+# Discretization of the space, number of gridpoints for discretization
+m = 101
+
+# Create 2-D discretization reconstruction space
+# discr_space = odl.uniform_discr([-0.5, -0.5], [0.5, 0.5], [m, m],
+#                                dtype='float32', interp='linear')
+
+# Create 3-D discretization reconstruction space
+discr_space = odl.uniform_discr(
+    [-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], [m, m, m],
+    dtype='float32', interp='linear')
+
+# Deformation space, number of gridpoints for deformation, usually n << m
+n = 101
+
+# Create 2-D discretization space for control points
+# cptsspace = odl.uniform_discr([-0.5, -0.5], [0.5, 0.5], [n, n],
+#                               dtype='float32', interp='linear')
+
+# Create 3-D discretization space for control points
+cptsspace = odl.uniform_discr([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], [n, n, n],
                               dtype='float32', interp='linear')
+
+# Create discretization space for vector field
 vspace = odl.ProductSpace(cptsspace, cptsspace.ndim)
 
-# Create input function as disc phantom
-template = odl.util.disc_phantom(discr_space, smooth=True, taper=50.0)
+# Create input function as Shepp-Logan phantom
+template = odl.util.shepp_logan(discr_space, modified=True)
 template.show('Template')
 
-# Create target function as submarine phantom
-target = odl.util.submarine_phantom(discr_space, smooth=True, taper=50.0)
+# Create target function as Shepp-Logan phantom
+target = odl.util.shepp_logan(discr_space, modified=True)
 target.show('Ground Truth')
 
-# Create projection domain
-detector_partition = odl.uniform_partition(-0.75, 0.75, 151)
+# Create input function as disc phantom
+# template = odl.util.disc_phantom(discr_space, smooth=True, taper=50.0)
+# template.show('Template')
+
+# Create target function as submarine phantom
+# target = odl.util.submarine_phantom(discr_space, smooth=True, taper=50.0)
+# target.show('Ground Truth')
+
+# Create 2-D projection domain
+# detector_partition = odl.uniform_partition(-0.75, 0.75, 151)
+
+# Create 3-D projection domain
+detector_partition = odl.uniform_partition(
+    [-0.75, -0.75], [0.75, 0.75], [151, 151])
 
 # Create projection directions
 angle_interval = odl.Interval(0, np.pi)
@@ -836,19 +904,25 @@ num_ang = 10
 angle_parts = np.linspace(0, 1, num_ang)
 angle_parts = angle_parts * np.pi
 angle_grid = odl.TensorGrid(angle_parts[:num_ang-1])
+
+# Create projection directions
 # angle_grid = odl.TensorGrid([0, np.pi/4, np.pi/2, np.pi*3/4])
+
+# Create angle partition
 angle_partition = odl.RectPartition(angle_interval, angle_grid)
 
-# Create 2D parallel projection geometry
-geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
+# Create 2-D parallel projection geometry
+# geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
 
-# Create forward projections by Radon transform
+# Create 3-D axis parallel projection geometry
+geometry = odl.tomo.Parallel3dAxisGeometry(angle_partition, detector_partition)
+
+# Create forward projections by X-ray transform
 xray_trafo_op = odl.tomo.RayTransform(discr_space, geometry, impl='astra_cuda')
 proj_data = xray_trafo_op(target)
 
 # Create white Gaussian noise
-noise = 0.1 * proj_data.space.element(proj_noise(proj_data.shape[0],
-                                                 proj_data.shape[1]))
+noise = 0.1 * proj_data.space.element(proj_noise(proj_data.shape))
 
 # Compute Signal-to-Noise Ratio
 print(SNR(proj_data, noise))
@@ -860,109 +934,86 @@ noise_proj_data = proj_data + noise
 backproj = xray_trafo_op.adjoint(noise_proj_data)
 backproj.show('backprojection')
 
-
-def padded_ft_op(space, padding_size):
-    padding_op = odl.ZeroPaddingOperator(space, [1 for i in range(space.ndim)])
-    shifts = [not s % 2 for s in space.shape]
-    ft_op = odl.trafos.FourierTransform(
-        padding_op.range, halfcomplex=False, shift=shifts)
-
-    return ft_op * padding_op
-
-
-# FFT setting for shape term, 1 means 100% padding
-padded_ft_shape_op = padded_ft_op(cptsspace, 1.0)
-vectorial_ft_shape_op = odl.ProductSpaceOperator([[padded_ft_shape_op, 0],
-                                                  [0, padded_ft_shape_op]])
-
-vectorial_ft_shape_op_inverse = odl.ProductSpaceOperator([[padded_ft_shape_op.inverse, 0],
-                                                          [0, padded_ft_shape_op.inverse]])
+# FFT setting for regularization shape term, 1 means 100% padding
+padding_size = 1.0
+padded_ft_shape_op = padded_ft_op(cptsspace, padding_size)
+vectorial_ft_shape_op = odl.DiagonalOperator(
+    *([padded_ft_shape_op] * cptsspace.ndim))
 
 # FFT setting for data matching term, 1 means 100% padding
-padded_ft_fit_op = padded_ft_op(discr_space, 1.0)
-vectorial_ft_fit_op = odl.ProductSpaceOperator([[padded_ft_fit_op, 0],
-                                                [0, padded_ft_fit_op]])
+padded_ft_fit_op = padded_ft_op(discr_space, padding_size)
+vectorial_ft_fit_op = odl.DiagonalOperator(
+    *([padded_ft_fit_op] * cptsspace.ndim))
 
-vectorial_ft_fit_op_inverse = odl.ProductSpaceOperator([[padded_ft_fit_op.inverse, 0],
-                                                        [0, padded_ft_fit_op.inverse]])
-
-
-def shape_kernel_fft_zero_padding(kernel):
-    """Compute the n-D Fourier transform of the discrete kernel ``K``.
-
-    Calculate the n-D Fourier transform of the discrete kernel ``K`` on the
-    control grid points {y_i} to its reciprocal points {xi_i}.
-
-    """
-
-    # Create the array of kernel values on the grid points
-    discretized_kernel = vspace.element([cptsspace.element(kernel) for i in range(cptsspace.ndim)])
-    return vectorial_ft_shape_op(discretized_kernel)
-
-
-def fitting_kernel_fft_zero_padding(kernel):
-    """Compute the n-D Fourier transform of the discrete kernel ``K``.
-
-    Calculate the n-D Fourier transform of the discrete kernel ``K`` on the
-    image grid points {y_i} to its reciprocal points {xi_i}.
-
-    """
-    kspace = odl.ProductSpace(discr_space, discr_space.ndim)
-
-    # Create the array of kernel values on the grid points
-    discretized_kernel = kspace.element([discr_space.element(kernel) for i in range(discr_space.ndim)])
-    return vectorial_ft_fit_op(discretized_kernel)
-
-# Create and initialize deformation field
-# Define the momenta and set it to zeroes or ones for test
+# Initialize deformation field
 momenta = vspace.zero()
 
-ft_kernel_fitting = fitting_kernel_fft_zero_padding(kernel)
-ft_kernel_shape = shape_kernel_fft_zero_padding(kernel)
+# Compute the FT for kernel function in data matching term
+ft_kernel_fitting = fitting_kernel_ft(kernel)
 
+# Compute the FT for kernel function in shape regularization term
+ft_kernel_shape = shape_kernel_ft(kernel)
+
+# Create displacement operator
 displacement_op = DisplacementOperator(vspace, cptsspace.grid,
                                        discr_space, ft_kernel_fitting)
+
+# Compute the displacement at momenta
 displ = displacement_op(momenta)
 
-
+# Create linearized deformation operator
 linear_deform_op = LinearizedDeformationOperator(template)
+
+# Compute the deformed template
 deformed_template = linear_deform_op(displ)
 
+# Create X-ray transform operator
 proj_deformed_template = xray_trafo_op(deformed_template)
 
-# Composition of the L2 fitting term with a deformation operator
+# Create L2 data matching(fitting) term
 l2_data_fit_func = L2DataMatchingFunctional(xray_trafo_op.range,
                                             noise_proj_data)
 
+# Composition of the L2 fitting term with three operators
 data_fitting_term = l2_data_fit_func * xray_trafo_op * linear_deform_op * displacement_op
 
-# Compute the gradient of shape-based regularization term
-kernelmatrix = gaussian_kernel_matrix(cptsspace.grid, sigma)
-shape_func = ShapeRegularizationFunctional(vspace, kernelmatrix)
+# Compute the gradient of shape regularization term
+shape_func = ShapeRegularizationFunctional(vspace)
 
-# Shape regularization parameter, nonnegtive
+# Shape regularization parameter, should be nonnegtive
 lambda_shape = 0.0001
+
 # Stepsize for iterations
 eta = 200.0
 
+# Test time, set starting time
 start = time.clock()
+
 # Iterations for updating alphas
 for i in range(1):
+
+    # Compute the FT for momenta
     ft_momenta = vectorial_ft_shape_op(momenta)
-    grad_shape_func = shape_func._gradient_fft_zero_padding(ft_momenta, ft_kernel_shape)
+
+    # Compute the gradient for shape regularization term
+    grad_shape_func = shape_func._gradient_ft(
+        ft_momenta, ft_kernel_shape)
+
+    # Compute the gradient for data fitting term
     grad_data_fitting_term = data_fitting_term.gradient(momenta)
+
+    # Update momenta
     momenta -= eta * (
         2 * lambda_shape * grad_shape_func + grad_data_fitting_term)
 
+    # Show the reconstrcted result
     if (i+1) % 2000 == 0:
-        print(i)
-#        print(grad_shape_func)
-#        print(grad_data_fitting_term)
-#        print(momenta)
         displ = displacement_op(momenta)
-        print(displ)
-        deformed_template = linear_deform_op(displ)  # deformed image
+        deformed_template = linear_deform_op(displ)
         deformed_template.show(title='Reconstruction Image, 1 iters, eta 200')
 
+# Test time, set end time
 end = time.clock()
+
+# Output the computational time
 print(end - start)
