@@ -37,7 +37,7 @@ class Functional(Operator):
 
     """Quick hack for a functional class."""
 
-    def __init__(self, domain, linear=False, smooth=False, concave=False, convex=False, lipschitz=np.inf):
+    def __init__(self, domain, linear=False, smooth=False, concave=False, convex=False, grad_lipschitz=np.inf):
         """Initialize a new instance.
 
         Parameters
@@ -65,7 +65,7 @@ class Functional(Operator):
         
         self._is_concave = bool(concave)
 
-        self._lipschitz = float(lipschitz)
+        self._grad_lipschitz = float(grad_lipschitz)
 
         super().__init__(domain=domain, range=domain.field, linear=linear)
 
@@ -116,6 +116,19 @@ class Functional(Operator):
             Domain equal to domain of functional 
         """
         raise NotImplementedError
+
+
+    def derivative(self, point):
+        functional = self
+        
+        class DerivativeOperator(Functional):
+            def __init__(self):
+                super().__init__(functional.domain, linear=True)
+            
+            def _call(self, x):
+                return x.inner(functional.gradient(point))
+        
+        return DerivativeOperator()
 
 
     def __mul__(self, other):
@@ -203,9 +216,9 @@ class Functional(Operator):
         return self._is_convex   
 
     @property
-    def lipschitz(self):
-        """A Lipschitz constant for the functional"""
-        return self._lipschitz   
+    def grad_lipschitz(self):
+        """Lipschitz constant for the gradient of the functional"""
+        return self._grad_lipschitz   
 
 class FunctionalComp(Functional, OperatorComp):
 
