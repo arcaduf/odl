@@ -70,6 +70,7 @@ class L2Functional(odl.solvers.functional.Functional):
     def _call(self, x):
         return np.sqrt(np.abs(x).inner(np.abs(x)))
     
+    @property
     def gradient(self):
         functional = self
         
@@ -98,6 +99,7 @@ class L2Functional(odl.solvers.functional.Functional):
         
         return L2Proximal()
 
+    @property
     def conjugate_functional(self):
         functional = self
         
@@ -114,9 +116,6 @@ class L2Functional(odl.solvers.functional.Functional):
         return L2Conjugate_functional()            
 
         
-
-        
-        
         
         
 l1func = L1Functional(space)
@@ -127,21 +126,26 @@ l1conjFun = l1func.conjugate_functional()
 # Create phantom
 phantom = odl.util.shepp_logan(space, modified=True)*5+1
 
+
 onevector=space.one()*5
-
-
 
 prox_phantom=l1prox(phantom)
 l1conjFun_phantom = l1conjFun(phantom)
 
 l2func=L2Functional(space)
 l2prox = l2func.proximal(sigma=1.5)
-l2conjFun = l2func.conjugate_functional()
-l2conjGrad = l2func.gradient()
+l2conjFun = l2func.conjugate_functional
+l2conjGrad = l2func.gradient
 
 
 prox2_phantom=l2prox(phantom*10)
 l2conjFun_phantom = l2conjFun(phantom/10)
+
+
+
+
+#a=1+2j
+#np.sign(a)
 
 #l2der_0=l2func.derivative(space.one)
 

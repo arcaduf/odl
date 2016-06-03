@@ -69,8 +69,9 @@ class Functional(Operator):
 
         super().__init__(domain=domain, range=domain.field, linear=linear)
 
-    def gradient(self, x, out=None):
-        """Evaluate the gradient of the functional.
+    @property
+    def gradient(self):
+        """Gradient operator of the functional.
 
         Parameters
         ----------
@@ -81,9 +82,8 @@ class Functional(Operator):
 
         Returns
         -------
-        out : domain element
-            Result of the gradient calcuation. If ``out`` was given,
-            the returned object is a reference to it.
+        out : `Operator`
+            Gradient operator of this functional.
         """
         raise NotImplementedError
 
@@ -102,9 +102,9 @@ class Functional(Operator):
         """
         raise NotImplementedError
 
-
+    @property
     def conjugate_functional(self):
-        """Return the conjugate functional of the functional.
+        """Convex conjugate functional of the functional.
 
         Parameters
         ----------
@@ -121,12 +121,17 @@ class Functional(Operator):
     def derivative(self, point):
         functional = self
         
+        
         class DerivativeOperator(Functional):
             def __init__(self):
                 super().__init__(functional.domain, linear=True)
+
+            self.point=point
             
+            #self.gradi=functional.gradient()
+
             def _call(self, x):
-                return x.inner(functional.gradient(point))
+                return x.inner(functional.gradient(point)) #gradi(point))
         
         return DerivativeOperator()
 
