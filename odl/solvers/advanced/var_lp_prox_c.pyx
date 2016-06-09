@@ -25,94 +25,53 @@ cimport cython
 cimport numpy as np
 
 
-__all__ = ('compute_varlp_prox_scalar_f32',)
+__all__ = ('compute_varlp_prox_scalar',)
 
 
-FLOAT = np.float32
-ctypedef np.float32_t FLOAT_T
-
-
-cdef FLOAT_T startvalue(FLOAT_T val, FLOAT_T p, FLOAT_T sigma):
-    cdef FLOAT_T sval = val / (p * (2.0 - p) * sigma)
-    if sval <= 1:
-        sval **= p - 1.0
-    else:
-        sval = 1.0
-    return sval
-
-@cython.profile(False)
-cdef FLOAT_T numerator(FLOAT_T it, FLOAT_T p, FLOAT_T sigma, FLOAT_T val):
-    return p * (p - 2) * sigma * it ** (p - 1) + val
-
-@cython.profile(False)
-cdef FLOAT_T denominator(FLOAT_T it, FLOAT_T p, FLOAT_T sigma):
-    return 1.0 + p * (p - 1) * sigma * it ** (p - 2)
-
-@cython.profile(False)
-cdef FLOAT_T newton_iter_f32(FLOAT_T val, FLOAT_T sigma, FLOAT_T p,
-                             int niter=5, FLOAT_T start_relax=0.5):
-    """Helper function for the inner Newton iteration (single precision).
+def compute_varlp_prox_scalar(f, p, out, s, max_newton_iter=5):
+    """Compute the proximal of the variable Lp modular, scalar version.
 
     Signature::
 
-        float newton_iter_f32(float32 val, float32 sigma, float32 p,
-                              int niter=5, float32 start_relax=0.5)
+        compute_varlp_prox_scalar_f32(np.ndarray f,
+                                      np.ndarray p,
+                                      np.ndarray out,
+                                      float s,
+                                      int max_newton_iter)
     """
-    # Start value which guarantees convergence.
-    cdef:
-        int i
-        FLOAT_T it, startval, denom, numer
-
-#    startval = val / (p * (2.0 - p) * sigma)
-#    if startval <= 1:
-#        startval **= p - 1.0
-#    else:
-#        startval = 1.0
-    startval = startvalue(val, p, sigma)
-
-    startval *= start_relax
-
-    # The iteration itself
-    it = startval
-    for i in range(niter):
-        # Denominator 1 + p*(p-1)*sigma*q**(p-2)
-#        denom = 1.0 + p * (p - 1) * sigma * it ** (p - 2)
-        denom = denominator(it, p, sigma)
-
-        # Numerator p*(p-2)*sigma*q**(p-1) + val
-#        numer = p * (p - 2) * sigma * it ** (p - 1) + val
-        numer = numerator(it, p, sigma, val)
-
-        it = numer / denom
-
-    return it
+    if (f.dtype == np.float32 and
+            p.dtype == np.float32 and
+            out.dtype == np.float32):
+        compute_varlp_prox_scalar_f32(f.ravel(), p.ravel(), out.ravel(),
+                                      np.float32(s), max_newton_iter)
+    elif (f.dtype == np.float64 and
+          p.dtype == np.float64 and
+          out.dtype == np.float64):
+        compute_varlp_prox_scalar_f64(f.ravel(), p.ravel(), out.ravel(),
+                                      np.float64(s), max_newton_iter)
+    else:
+        raise ValueError('no implementation for data types {}, {}, {} of '
+                         '`f`, `p`, `out`'.format(f.dtype, p.dtype, out.dtype))
 
 
-cdef inline FLOAT_T max(FLOAT_T x, FLOAT_T y):
-    return x if x > y else y
+# --- Single precision --- #
 
-cdef inline FLOAT_T min(FLOAT_T x, FLOAT_T y):
-    return x if x < y else y
-
-cdef inline FLOAT_T abs(FLOAT_T x):
-    return x if x >= 0 else -x
+FLOAT = np.float32
+ctypedef np.float32_t FLOAT32_T
 
 
-cdef FLOAT_T varlp_prox_1(FLOAT_T f, FLOAT_T s):
-    return max(1.0 - s / abs(f), 0.0) * f
-
-
-cdef FLOAT_T varlp_prox_2(FLOAT_T f, FLOAT_T s):
-    return f / (1.0 + 2.0 * s)
+cdef extern void compute_varlp_prox_scalar__float(
+    FLOAT32_T *f, FLOAT32_T *p, FLOAT32_T *out, int n, FLOAT32_T s,
+    int max_newton_iter)
 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def compute_varlp_prox_scalar_f32(
-        np.ndarray[FLOAT_T] f,
-        np.ndarray[FLOAT_T] p,
-        np.ndarray[FLOAT_T] out,
-        FLOAT_T s,
+cpdef compute_varlp_prox_scalar_f32(
+        np.ndarray[FLOAT32_T] f,
+        np.ndarray[FLOAT32_T] p,
+        np.ndarray[FLOAT32_T] out,
+        FLOAT32_T s,
         int max_newton_iter):
     """Compute the proximal of the variable Lp modular, scalar version.
 
@@ -124,123 +83,42 @@ def compute_varlp_prox_scalar_f32(
                                            float32 s,
                                            int max_newton_iter)
     """
-    assert f.dtype == np.float32 and p.dtype == np.float32
-    cdef:
-        int i
-        int nx = f.shape[0]
+    assert (f.dtype == FLOAT and p.dtype == FLOAT and out.dtype == FLOAT)
+    cdef int n = f.shape[0]
+    compute_varlp_prox_scalar__float(&f[0], &p[0], &out[0], n, s,
+                                     max_newton_iter)
 
-    for i in range(nx):
-        if f[i] == 0.0:
-            out[i] = 0.0
 
-        elif p[i] <= 1.05:
-#            out[i] = max(1.0 - s / abs(f[i]), 0.0) * f[i]
-            out[i] = varlp_prox_1(f[i], s)
+# --- Double precision --- #
 
-        elif p[i] >= 1.95:
-#            out[i] = f[i] / (1.0 + 2.0 * s)
-            out[i] = varlp_prox_2(f[i], s)
+FLOAT = np.float64
+ctypedef np.float64_t FLOAT64_T
 
-        else:
-            out[i] = newton_iter_f32(f[i], s, p[i], max_newton_iter)
 
-    return out
+cdef extern void compute_varlp_prox_scalar__double(
+    FLOAT64_T *f, FLOAT64_T *p, FLOAT64_T *out, int n, FLOAT64_T s,
+    int max_newton_iter)
 
-#
-#def _call_scalar(self, f, out, **kwargs):
-#    """Implement ``self(x, out, **kwargs)`` for scalar domain."""
-#    if self.g is not None:
-#        f = f - self.g
-#
-#    step = self.sigma * float(lam)
-#
-#    exp_arr = self.exponent.asarray()
-#    out_arr = out.asarray()
-#    f_arr = f.asarray()
-#    f_nz = (f_arr != 0)
-#
-#    # p = 2
-#    # This formula is used globally since it sets out to 0
-#    # where f is 0.
-#    out.lincomb(0, out, 1.0 / (1.0 + 2.0 * step), f)
-#
-#    # p = 1 (taking also close to one for stability)
-#    cur_exp = (exp_arr <= 1.05)
-#    current = cur_exp & f_nz
-#    factor = np.maximum(1.0 - step / np.abs(f_arr[current]), 0.0)
-#    out_arr[current] = factor * f_arr[current]
-#
-#    # Newton iteration for other p values. We consider only those
-#    # entries that correspond to f != 0.
-#    cur_exp = ~((exp_arr >= 1.95) | cur_exp)
-#    current = cur_exp & f_nz
-#    exp_p = exp_arr[current]
-#    exp_m1 = exp_p - 1
-#    exp_m2 = exp_p - 2
-#    it = out_arr[current]
-#    val = f_arr[current]
-#    tmp = np.empty_like(it)
-#
-#    maxiter = int(kwargs.pop('max_newton_iter', 5))
-#    self._newton_iter(it, np.abs(val), step, exp_p, exp_m1, exp_m2,
-#                      niter=maxiter, tmp=tmp)
-#
-#    out_arr[current] = it
-#    out_arr[current] *= np.sign(val)
-#    out[:] = out_arr
-#
-#    if self.g is not None:
-#        out += self.g
-#
-#def _call_pspace(self, f, out, **kwargs):
-#    """Implement ``self(x, out, **kwargs)`` for vectorial domain."""
-#    if self.g is not None:
-#        f = f - self.g
-#
-#    step = self.sigma * float(lam)
-#
-#    exp_arr = self.exponent.asarray()
-#    f_nz = [(fi.asarray() != 0) for fi in f]
-#    pw_norm = PointwiseNorm(self.domain)
-#    f_norm = pw_norm(f)
-#
-#    # p = 2
-#    # This formula is used globally since it sets out to 0
-#    # where f is 0.
-#    out.lincomb(0, out, 1.0 / (1.0 + 2.0 * step), f)
-#
-#    # p = 1 (taking also close to one for stability)
-#    cur_exp = (exp_arr <= 1.05)
-#    for fi, fi_nz, oi in zip(f, f_nz, out):
-#        fi_arr = fi.asarray()
-#        oi_arr = oi.asarray()
-#        current = cur_exp & fi_nz
-#        factor = np.maximum(1.0 - step / np.abs(fi_arr[current]), 0.0)
-#        oi_arr[current] = factor * fi_arr[current]
-#        oi[:] = oi_arr
-#
-#    # Newton iteration for other p values
-#    maxiter = int(kwargs.pop('max_newton_iter', 5))
-#    cur_exp = ~((exp_arr >= 1.95) | cur_exp)
-#    for fi, fi_nz, oi in zip(f, f_nz, out):
-#        fi_arr = fi.asarray()
-#        oi_arr = oi.asarray()
-#        current = cur_exp & fi_nz
-#        exp_p = exp_arr[current]
-#        exp_m1 = exp_p - 1
-#        exp_m2 = exp_p - 2
-#
-#        it = oi_arr[current]
-#        val = fi_arr[current]
-#        tmp = np.empty_like(it)
-#        self._newton_iter(it, np.abs(val), step, exp_p, exp_m1, exp_m2,
-#                          niter=maxiter, tmp=tmp)
-#
-#        oi_arr[current] = it
-#        oi_arr[current] /= f_norm.asarray()[current]
-#        oi_arr[current] *= val
-#
-#        oi[:] = oi_arr
-#
-#    if self.g is not None:
-#        out += self.g
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef compute_varlp_prox_scalar_f64(
+        np.ndarray[FLOAT64_T] f,
+        np.ndarray[FLOAT64_T] p,
+        np.ndarray[FLOAT64_T] out,
+        FLOAT64_T s,
+        int max_newton_iter):
+    """Compute the proximal of the variable Lp modular, scalar version.
+
+    Signature::
+
+        void compute_varlp_prox_scalar_f64(np.ndarray[float64] f,
+                                           np.ndarray[float64] p,
+                                           np.ndarray[float64] out,
+                                           float64 s,
+                                           int max_newton_iter)
+    """
+    assert (f.dtype == FLOAT and p.dtype == FLOAT and out.dtype == FLOAT)
+    cdef int n = f.shape[0]
+    compute_varlp_prox_scalar__double(&f[0], &p[0], &out[0], n, s,
+                                     max_newton_iter)

@@ -118,6 +118,8 @@ Features
 
 cython_modules = {
     'odl/solvers/advanced/var_lp_prox_c.pyx': {
+        'sources': ['odl/solvers/advanced/c_src/var_lp_prox.c'],
+        'libraries': ['m'],
         'include_dirs': [os.path.join(np.__path__[0], 'core/include')]}
 }
 
@@ -130,6 +132,7 @@ def extension_from_spec(dict_item):
     define_macros = dictval.pop('define_macros', [])
     undef_macros = dictval.pop('undef_macros', [])
     library_dirs = dictval.pop('library_dirs', [])
+    libraries = dictval.pop('libraries', [])
     extra_objects = dictval.pop('extra_objects', [])
     extra_compile_args = dictval.pop('extra_compile_args', [])
     extra_link_args = dictval.pop('extra_link_args', [])
@@ -145,6 +148,7 @@ def extension_from_spec(dict_item):
                      define_macros=define_macros,
                      undef_macros=undef_macros,
                      library_dirs=library_dirs,
+                     libraries=libraries,
                      extra_objects=extra_objects,
                      extra_compile_args=extra_compile_args,
                      extra_link_args=extra_link_args,
