@@ -12,6 +12,7 @@ from odl.operator.operator import Operator, OperatorComp
 import odl
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 standard_library.install_aliases()
 
 
@@ -657,7 +658,7 @@ class ShapeRegularizationFunctional(Operator):
     """
     # TODO: let user specify K
 
-    def __init__(self, par_space):
+    def __init__(self, par_space, ft_kernel):
         """Initialize a new instance.
 
         Parameters
@@ -676,17 +677,26 @@ class ShapeRegularizationFunctional(Operator):
 #        else:
 #            self._kernel_op = odl.MatVecOperator(kernel_op)
         self.par_space = par_space
+        self.ft_kernel = ft_kernel
 
     def _call(self, alphas):
         """Return ``self(alphas)``."""
-        # TODO: add out parameter
+        # TODO: how to improve
+
+        # Compute the shape energy by fft
+        ft_momenta = vectorial_ft_shape_op(alphas)
+        stack = vectorial_ft_shape_op.inverse(self.ft_kernel * ft_momenta)
+        return sum(s.inner(s.space.element(
+                       np.asarray(a).reshape(-1, order=self.domain[0].order)))
+                   for s, a in zip(stack, alphas)) / 2
+
+#        # Compute the shape energy by matrix times vector
 #        stack = [self._kernel_op(
 #                     np.asarray(a).reshape(-1, order=self.domain[0].order))
 #                 for a in alphas]
 #        return sum(s.inner(s.space.element(
 #                       np.asarray(a).reshape(-1, order=self.domain[0].order)))
 #                   for s, a in zip(stack, alphas)) / 2
-        pass
 
     def _gradient(self, alphas):
         """Return the gradient at ``alphas``.
@@ -695,10 +705,11 @@ class ShapeRegularizationFunctional(Operator):
 
             grad(S)(alpha) = K alpha
         """
-        return self.domain.element([self._kernel_op(np.asarray(a).reshape(-1))
-                                    for a in alphas])
+#        return self.domain.element([self._kernel_op(np.asarray(a).reshape(-1))
+#                                    for a in alphas])
+        pass
 
-    def _gradient_ft(self, ft_momenta, ft_kernel):
+    def _gradient_ft(self, alphas):
         """Return the gradient at ``alphas``.
 
         The gradient of the functional is given by
@@ -707,7 +718,8 @@ class ShapeRegularizationFunctional(Operator):
 
         This is used for the n-D case: control grid = image grid.
         """
-        return vectorial_ft_shape_op.inverse(ft_kernel * ft_momenta)
+        ft_momenta = vectorial_ft_shape_op(alphas)
+        return vectorial_ft_shape_op.inverse(self.ft_kernel * ft_momenta)
 #        return (vectorial_ft_op_inverse(ft_displacement) /
 #                self.par_space[0].cell_volume * 2.0 * np.pi)
 
@@ -762,6 +774,33 @@ def kernel(x):
     return np.exp(-sum(scaled))
 
 
+def gaussian_kernel_matrix(grid, sigma):
+    """Return the kernel matrix for Gaussian kernel.
+
+    The Gaussian kernel matrix ``K`` in ``n`` dimensions is defined as::
+
+        k_ij = exp(- |x_i - x_j|^2 / (2 * sigma^2))
+
+    where ``x_i, x_j`` runs through all grid points. The final matrix
+    has size ``N x N``, where ``N`` is the total number of grid points.
+
+    Parameters
+    ----------
+    grid : `RegularGrid`
+        Grid where the control points are defined
+    sigma : `float`
+        Width of the Gaussian kernel
+    """
+    point_arrs = grid.points().T
+    matrices = [parr[:, None] - parr[None, :] for parr in point_arrs]
+    for mat in matrices:
+        mat *= mat
+
+    sq_sum = np.sqrt(np.sum(mat for mat in matrices))
+    kernel_matrix = np.exp(-sq_sum / (2 * sigma ** 2))
+    return kernel_matrix
+
+
 def proj_noise(proj_data_shape, mu=0.0, sigma=0.1):
     """Produce white Gaussian noise for projections of n-D images.
 
@@ -793,10 +832,15 @@ def SNR(signal, noise):
     signal : projection
     noise : white noise
     """
-    ave1 = np.sum(signal)/signal.size
-    ave2 = np.sum(noise)/noise.size
-    en1 = np.sqrt(np.sum((signal - ave1) * (signal - ave1)))
-    en2 = np.sqrt(np.sum((noise - ave2) * (noise - ave2)))
+    if np.abs(np.asarray(noise)).sum() != 0:
+        ave1 = np.sum(signal)/signal.size
+        ave2 = np.sum(noise)/noise.size
+        en1 = np.sqrt(np.sum((signal - ave1) * (signal - ave1)))
+        en2 = np.sqrt(np.sum((noise - ave2) * (noise - ave2)))
+
+        return 10.0 * np.log10(en1/en2)
+    else:
+        return 1000.
 
     return 10.0 * np.log10(en1/en2)
 
@@ -846,93 +890,137 @@ def fitting_kernel_ft(kernel):
     return vectorial_ft_fit_op(discretized_kernel)
 
 
-# Fix the sigma parameter in the kernel
-sigma = 0.2
+## Fix the sigma parameter in the kernel
+#sigma = 5.0
+#
+## Discretization of the space, number of gridpoints for discretization
+#m = 101
+#
+## Create 2-D discretization reconstruction space
+## discr_space = odl.uniform_discr([-0.5, -0.5], [0.5, 0.5], [m, m],
+##                                dtype='float32', interp='linear')
+#
+## Create 3-D discretization reconstruction space
+#discr_space = odl.uniform_discr(
+#    [-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], [m, m, m],
+#    dtype='float32', interp='linear')
+#
+## Deformation space, number of gridpoints for deformation, usually n << m
+#n = 101
+#
+## Create 2-D discretization space for control points
+## cptsspace = odl.uniform_discr([-0.5, -0.5], [0.5, 0.5], [n, n],
+##                               dtype='float32', interp='linear')
+#
+## Create 3-D discretization space for control points
+#cptsspace = odl.uniform_discr([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], [n, n, n],
+#                              dtype='float32', interp='linear')
+#
+## Create discretization space for vector field
+#vspace = odl.ProductSpace(cptsspace, cptsspace.ndim)
+#
+## Create input function as Shepp-Logan phantom
+#template = odl.util.shepp_logan(discr_space, modified=True)
+#
+## Create ground_truth function as Shepp-Logan phantom
+#ground_truth = odl.util.shepp_logan(discr_space, modified=True)
+#
+## Create input function as disc phantom
+## template = odl.util.disc_phantom(discr_space, smooth=True, taper=50.0)
+## template.show('Template')
+#
+## Create ground_truth function as submarine phantom
+## ground_truth = odl.util.submarine_phantom(
+##    discr_space, smooth=True, taper=50.0)
+## ground_truth.show('Ground Truth')
+#
+## Create 2-D projection domain
+## detector_partition = odl.uniform_partition(-0.75, 0.75, 151)
+#
+## Create 3-D projection domain
+#detector_partition = odl.uniform_partition(
+#    [-0.75, -0.75], [0.75, 0.75], [151, 151])
+#
+## Create angle partition, Create projection directions
+#angle_partition = odl.uniform_partition(0, np.pi/4, 2, nodes_on_bdry=True)
+#
+## Create 2-D parallel projection geometry
+## geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
+#
+## Create 3-D axis parallel projection geometry
+#geometry = odl.tomo.Parallel3dAxisGeometry(angle_partition, detector_partition)
 
-# Discretization of the space, number of gridpoints for discretization
-m = 101
+# Fix the sigma parameter in the kernel
+sigma = 2.0
+
+# Give the path of images
+I0name = '../ddmatch/Example3 letters/c_highres.png'
+I1name = '../ddmatch/Example3 letters/i_highres.png'
+
+# Read the images to play with
+I0 = plt.imread(I0name).astype('float')
+I1 = plt.imread(I1name).astype('float')
+
+# Do a downsampling
+I0 = I0[::2, ::2]
+I1 = I1[::2, ::2]
 
 # Create 2-D discretization reconstruction space
-# discr_space = odl.uniform_discr([-0.5, -0.5], [0.5, 0.5], [m, m],
-#                                dtype='float32', interp='linear')
-
-# Create 3-D discretization reconstruction space
-discr_space = odl.uniform_discr(
-    [-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], [m, m, m],
-    dtype='float32', interp='linear')
-
-# Deformation space, number of gridpoints for deformation, usually n << m
-n = 101
+# The size of the domain should be proportional to the given images
+discr_space = odl.uniform_discr([-16, -16],
+                                [16, 16], [128, 128],
+                                dtype='float32', interp='linear')
 
 # Create 2-D discretization space for control points
-# cptsspace = odl.uniform_discr([-0.5, -0.5], [0.5, 0.5], [n, n],
-#                               dtype='float32', interp='linear')
-
-# Create 3-D discretization space for control points
-cptsspace = odl.uniform_discr([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], [n, n, n],
+cptsspace = odl.uniform_discr([-16, -16], [16, 16], [128, 128],
                               dtype='float32', interp='linear')
 
 # Create discretization space for vector field
 vspace = odl.ProductSpace(cptsspace, cptsspace.ndim)
 
-# Create input function as Shepp-Logan phantom
-template = odl.util.shepp_logan(discr_space, modified=True)
-template.show('Template')
+# Create the ground truth as the given image
+ground_truth = discr_space.element(I0.T)
 
-# Create target function as Shepp-Logan phantom
-target = odl.util.shepp_logan(discr_space, modified=True)
-target.show('Ground Truth')
+# Create the template as the given image
+template = discr_space.element(I1.T)
 
-# Create input function as disc phantom
-# template = odl.util.disc_phantom(discr_space, smooth=True, taper=50.0)
-# template.show('Template')
+# Give the number of directions
+num_angles = 6
 
-# Create target function as submarine phantom
-# target = odl.util.submarine_phantom(discr_space, smooth=True, taper=50.0)
-# target.show('Ground Truth')
+# Create the uniformly distributed directions
+angle_partition = odl.uniform_partition(
+    0, np.pi, num_angles, nodes_on_bdry=[(True, False)])
 
 # Create 2-D projection domain
-# detector_partition = odl.uniform_partition(-0.75, 0.75, 151)
-
-# Create 3-D projection domain
-detector_partition = odl.uniform_partition(
-    [-0.75, -0.75], [0.75, 0.75], [151, 151])
-
-# Create projection directions
-angle_interval = odl.Interval(0, np.pi)
-num_ang = 10
-angle_parts = np.linspace(0, 1, num_ang)
-angle_parts = angle_parts * np.pi
-angle_grid = odl.TensorGrid(angle_parts[:num_ang-1])
-
-# Create projection directions
-# angle_grid = odl.TensorGrid([0, np.pi/4, np.pi/2, np.pi*3/4])
-
-# Create angle partition
-angle_partition = odl.RectPartition(angle_interval, angle_grid)
+# The length should be 1.5 times of that of the reconstruction space
+detector_partition = odl.uniform_partition(-24, 24, 192)
 
 # Create 2-D parallel projection geometry
-# geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
+geometry = odl.tomo.Parallel2dGeometry(angle_partition,
+                                       detector_partition)
 
-# Create 3-D axis parallel projection geometry
-geometry = odl.tomo.Parallel3dAxisGeometry(angle_partition, detector_partition)
+# Create forward projection operator by X-ray transform
+xray_trafo_op = odl.tomo.RayTransform(discr_space,
+                                      geometry,
+                                      impl='astra_cuda')
 
-# Create forward projections by X-ray transform
-xray_trafo_op = odl.tomo.RayTransform(discr_space, geometry, impl='astra_cuda')
-proj_data = xray_trafo_op(target)
+# Create projection data by given setting
+proj_data = xray_trafo_op(ground_truth)
 
 # Create white Gaussian noise
-noise = 0.1 * proj_data.space.element(proj_noise(proj_data.shape))
+noise = 10.0 * proj_data.space.element(proj_noise(proj_data.shape))
 
-# Compute Signal-to-Noise Ratio
-print(SNR(proj_data, noise))
+# Compute the signal-to-noise ratio
+snr = SNR(proj_data, noise)
 
-# Create noisy projections, noise ~ (0, 0.1)
+# Output the signal-to-noise ratio
+print('snr = {!r}'.format(snr))
+
+# Create the noisy projection data
 noise_proj_data = proj_data + noise
 
-# proj_data_template = xray_trafo_op(template)
+# Do the backprojection reconstruction
 backproj = xray_trafo_op.adjoint(noise_proj_data)
-backproj.show('backprojection')
 
 # FFT setting for regularization shape term, 1 means 100% padding
 padding_size = 1.0
@@ -945,13 +1033,13 @@ padded_ft_fit_op = padded_ft_op(discr_space, padding_size)
 vectorial_ft_fit_op = odl.DiagonalOperator(
     *([padded_ft_fit_op] * cptsspace.ndim))
 
-# Initialize deformation field
+# Initialize deformation vector field
 momenta = vspace.zero()
 
-# Compute the FT for kernel function in data matching term
+# Compute Fourier trasform of the kernel function in data matching term
 ft_kernel_fitting = fitting_kernel_ft(kernel)
 
-# Compute the FT for kernel function in shape regularization term
+# Compute Fourier trasform of the kernel function in shape regularization term
 ft_kernel_shape = shape_kernel_ft(kernel)
 
 # Create displacement operator
@@ -970,50 +1058,114 @@ deformed_template = linear_deform_op(displ)
 # Create X-ray transform operator
 proj_deformed_template = xray_trafo_op(deformed_template)
 
-# Create L2 data matching(fitting) term
+# Create L2 data matching (fitting) term
 l2_data_fit_func = L2DataMatchingFunctional(xray_trafo_op.range,
                                             noise_proj_data)
 
 # Composition of the L2 fitting term with three operators
 data_fitting_term = l2_data_fit_func * xray_trafo_op * linear_deform_op * displacement_op
 
+# Compute the kernel matrix for the method without Fourier transform
+# If the dimension is too large, it could cause MemoryError
+# kernelmatrix = gaussian_kernel_matrix(cptsspace.grid, sigma)
+
 # Compute the gradient of shape regularization term
-shape_func = ShapeRegularizationFunctional(vspace)
+shape_func = ShapeRegularizationFunctional(vspace, ft_kernel_shape)
 
 # Shape regularization parameter, should be nonnegtive
 lambda_shape = 0.0001
 
-# Stepsize for iterations
-eta = 200.0
+# Step size for the gradient descent method
+eta = 0.05
+
+# Maximum iteration number
+niter = 500
 
 # Test time, set starting time
 start = time.clock()
 
+# Create the memory for energy in each iteration
+E = []
+kE = len(E)
+E = np.hstack((E, np.zeros(niter)))
+
 # Iterations for updating alphas
-for i in range(1):
+for i in range(niter):
 
-    # Compute the FT for momenta
-    ft_momenta = vectorial_ft_shape_op(momenta)
+    # Compute the gradient for the shape term by Fourier transform
+    grad_shape_func = shape_func._gradient_ft(momenta)
 
-    # Compute the gradient for shape regularization term
-    grad_shape_func = shape_func._gradient_ft(
-        ft_momenta, ft_kernel_shape)
+    E[i+kE] = 0.5 * lambda_shape * sum(s.inner(s.space.element(np.asarray(a).reshape(-1, order=vspace[0].order)))
+        for s, a in zip(grad_shape_func, momenta)) + data_fitting_term(momenta)
 
     # Compute the gradient for data fitting term
     grad_data_fitting_term = data_fitting_term.gradient(momenta)
 
     # Update momenta
     momenta -= eta * (
-        2 * lambda_shape * grad_shape_func + grad_data_fitting_term)
+        lambda_shape * grad_shape_func + grad_data_fitting_term)
 
-    # Show the reconstrcted result
-    if (i+1) % 2000 == 0:
-        displ = displacement_op(momenta)
-        deformed_template = linear_deform_op(displ)
-        deformed_template.show(title='Reconstruction Image, 1 iters, eta 200')
+    # Show the middle reconstrcted results
+    if (i+1) % 100 == 0:
+        print(i+1)
+#        displ = displacement_op(momenta)
+#        deformed_template = linear_deform_op(displ)
+#        deformed_template.show(
+#            title='Reconstruction Image, iters = {!r}, eta 200'.format(i+1))
 
 # Test time, set end time
 end = time.clock()
 
 # Output the computational time
 print(end - start)
+
+# Compute the projections of the reconstructed image
+displ = displacement_op(momenta)
+deformed_template = linear_deform_op(displ)
+rec_proj_data = xray_trafo_op(deformed_template)
+
+# Plot the results of interest
+plt.figure(1, figsize=(20, 10))
+plt.clf()
+
+plt.subplot(2, 3, 1)
+plt.imshow(I0, cmap='bone', vmin=I0.min(), vmax=I0.max())
+plt.colorbar()
+plt.title('Ground truth')
+
+plt.subplot(2, 3, 2)
+plt.imshow(I1, cmap='bone', vmin=I1.min(), vmax=I1.max())
+plt.colorbar()
+plt.title('Template')
+
+plt.subplot(2, 3, 3)
+# plt.imshow(np.asarray(backproj).T, cmap='bone',
+#            vmin=np.asarray(backproj).min(), vmax=np.asarray(backproj).max())
+# plt.colorbar()
+# plt.title('Backprojection')
+plt.title('stepsize = {!r}, $\sigma$ = {!r}'.format(eta, sigma))
+plt.plot(E)
+plt.xlabel('Iteration number')
+plt.ylabel('Energy')
+# plt.gca().axes.yaxis.set_ticklabels(['0']+['']*8)
+plt.gca().axes.yaxis.set_ticklabels([])
+plt.grid(True)
+
+plt.subplot(2, 3, 4)
+plt.imshow(np.asarray(deformed_template).T, cmap='bone',
+           vmin=np.asarray(deformed_template).min(),
+           vmax=np.asarray(deformed_template).max())
+plt.colorbar()
+plt.title('Reconstructed image by {!r} iters, {!r} projs'.format(niter, num_angles))
+
+plt.subplot(2, 3, 5)
+plt.plot(np.asarray(proj_data)[0], 'b', np.asarray(noise_proj_data)[0], 'r')
+plt.title('Theta=0, blue: truth_data, red: noisy_data, SNR = {:.3}dB'.format(snr))
+plt.gca().axes.yaxis.set_ticklabels([])
+plt.axis([0, 191, -17, 32])
+
+plt.subplot(2, 3, 6)
+plt.plot(np.asarray(proj_data)[0], 'b', np.asarray(rec_proj_data)[0], 'r')
+plt.title('Theta=0, blue: truth_data, red: rec result')
+plt.gca().axes.yaxis.set_ticklabels([])
+plt.axis([0, 191, -17, 32])

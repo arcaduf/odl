@@ -29,7 +29,7 @@ from odl.discr.lp_discr import DiscreteLp, uniform_discr
 from odl.operator.operator import Operator
 
 
-__all__ = ('Resampling',)
+__all__ = ('Resampling', 'ZeroPaddingOperator')
 
 
 class Resampling(Operator):

@@ -178,9 +178,9 @@ class Parallel2dGeometry(ParallelGeometry):
             ``det_init_axis`` is not zero.
         """
         self._det_init_pos = kwargs.pop('det_init_pos', (1.0, 0.0))
-        self._det_init_axis = kwargs.pop('det_init_axis', None)
+        det_init_axis = kwargs.pop('det_init_axis', None)
 
-        if self.det_init_axis is None:
+        if det_init_axis is None:
             if np.linalg.norm(self.det_init_pos) <= 1e-10:
                 raise ValueError('`det_init_pos` {} is close to '
                                  'zero. This is only allowed for explicit '
@@ -205,7 +205,7 @@ class Parallel2dGeometry(ParallelGeometry):
     @property
     def det_init_axis(self):
         """The direction of the detector extent at angle=0."""
-        return self._det_init_axis
+        return self.detector.axis
 
     def rotation_matrix(self, angle):
         """Return the rotation matrix for ``angle``.

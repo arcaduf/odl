@@ -34,7 +34,7 @@ reco_space = odl.uniform_discr(
 
 # Make a parallel beam geometry with flat detector
 # Angles: uniformly spaced, n = 360, min = 0, max = 2 * pi
-angle_partition = odl.uniform_partition(0, 2 * np.pi, 360)
+angle_partition = odl.uniform_partition(0, np.pi / 4, 2, nodes_on_bdry=[(True, True)])
 # Detector: uniformly sampled, n = 558, min = -30, max = 30
 detector_partition = odl.uniform_partition(-30, 30, 558)
 geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
