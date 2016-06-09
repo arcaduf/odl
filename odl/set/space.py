@@ -24,9 +24,9 @@ from future import standard_library
 standard_library.install_aliases()
 
 from abc import abstractmethod
-import math as m
+import numpy as np
 
-from odl.set.sets import Set, UniversalSet
+from odl.set.sets import Field, Set, UniversalSet
 
 
 __all__ = ('LinearSpace', 'LinearSpaceVector', 'UniversalSpace',
@@ -36,35 +36,28 @@ __all__ = ('LinearSpace', 'LinearSpaceVector', 'UniversalSpace',
 class LinearSpace(Set):
     """Abstract linear vector space.
 
-    Its elements are represented as instances of the inner
+    Its elements are represented as instances of the
     `LinearSpaceVector` class.
     """
 
     def __init__(self, field):
-        """Initialize a LinearSpace.
+        """Initialize a new instance.
 
-        This method should be called by all inheriting methods so that the
-        field property of the space is set properly.
+        This method should be called by all inheriting methods so that
+        the `field` property of the space is properly set.
 
         Parameters
         ----------
         field : `Field`
-            The underlying scalar field of the space
+            Scalar field of numbers for this space.
         """
+        if not isinstance(field, Field):
+            raise TypeError('`field` {!r} is not a `Field` instance')
         self._field = field
 
     @property
     def field(self):
-        """The field of this vector space.
-
-        The field is the set of scalars of the space, that is numbers that
-        the vectors in the space can be multiplied with.
-
-        Returns
-        -------
-        field : `Field`
-            The underlying field.
-        """
+        """Scalar field of numbers for this vector space."""
         return self._field
 
     @abstractmethod
@@ -77,19 +70,19 @@ class LinearSpace(Set):
         Parameters
         ----------
         inp : optional
-            Input data from which to create the element
+            Input data from which to create the element.
         kwargs :
-            Optional further arguments
+            Optional further arguments.
 
         Returns
         -------
         element : `LinearSpaceVector`
-            A vector in this space
+            A vector in this space.
         """
 
     @property
     def examples(self):
-        """Return the two default examples, `zero` and `one` (if available)."""
+        """Example elements `zero` and `one` (if available)."""
         # All spaces should yield the zero element
         yield ('Zero', self.zero())
 
@@ -100,34 +93,34 @@ class LinearSpace(Set):
 
     @abstractmethod
     def _lincomb(self, a, x1, b, x2, out):
-        """Calculate ``out = a*x1 + b*x2``.
+        """Implement ``out[:] = a * x1 + b * x2``.
 
-        This method is intended to be private, public callers should
+        This method is intended to be private. Public callers should
         resort to `lincomb` which is type-checked.
         """
 
     def _dist(self, x1, x2):
-        """Calculate the distance between x1 and x2.
+        """Return the distance between ``x1`` and ``x2``.
 
-        This method is intended to be private, public callers should
+        This method is intended to be private. Public callers should
         resort to `dist` which is type-checked.
         """
         # default implementation
         return self.norm(x1 - x2)
 
     def _norm(self, x):
-        """Calculate the norm of x.
+        """Return the norm of ``x``.
 
-        This method is intended to be private, public callers should
+        This method is intended to be private. Public callers should
         resort to `norm` which is type-checked.
         """
         # default implementation
-        return m.sqrt(self.inner(x, x).real)
+        return float(np.sqrt(self.inner(x, x).real))
 
     def _inner(self, x1, x2):
-        """Calculate the inner product of x1 and x2.
+        """Return the inner product of ``x1`` and ``x2``.
 
-        This method is intended to be private, public callers should
+        This method is intended to be private. Public callers should
         resort to `inner` which is type-checked.
         """
         # No default implementation possible
@@ -135,9 +128,9 @@ class LinearSpace(Set):
             'inner product not implemented in space {!r}'.format(self))
 
     def _multiply(self, x1, x2, out):
-        """Calculate the pointwise multiplication out = x1 * x2.
+        """Implement the pointwise multiplication ``out[:] = x1 * x2``.
 
-        This method is intended to be private, public callers should
+        This method is intended to be private. Public callers should
         resort to `multiply` which is type-checked.
         """
         # No default implementation possible
@@ -145,32 +138,16 @@ class LinearSpace(Set):
             'multiplication not implemented in space {!r}'.format(self))
 
     def one(self):
-        """A one vector in this space.
-
-        The one vector is defined as the multiplicative unit of a space.
-
-        Returns
-        -------
-        v : `LinearSpaceVector`
-            The one vector of this space
-        """
+        """Return the one (multiplicative unit) element of this space."""
         raise LinearSpaceNotImplementedError(
             '"one" element not implemented in space {!r}.'.format(self))
 
     # Default methods
     def zero(self):
-        """A zero vector in this space.
-
-        The zero vector is defined as the additive unit of a space.
-
-        Returns
-        -------
-        v : `LinearSpaceVector`
-            The zero vector of this space
-        """
+        """Return the zero (additive unit) element of this space."""
         # Default implementation using lincomb
         tmp = self.element()
-        self._lincomb(tmp, 0, tmp, 0, tmp)
+        self.lincomb(tmp, 0, tmp, 0, tmp)
         return tmp
 
     def __contains__(self, other):
@@ -191,30 +168,31 @@ class LinearSpace(Set):
 
     # Error checking variant of methods
     def lincomb(self, a, x1, b=None, x2=None, out=None):
-        """Linear combination of vectors.
+        """Implement ``out[:] = a * x1 + b * x2``.
 
-        Calculates
+        This function implements
 
-        ``out = a * x1``
+            ``out[:] = a * x1``
 
-        or, if b and y are given,
+        or, if ``b`` and ``y`` are given,
 
-        ``out = a*x1 + b*x2``
+            ``out = a * x1 + b * x2``
 
         with error checking of types.
 
         Parameters
         ----------
-        a : Scalar in the field of this space
+        a : `field` element
             Scalar to multiply ``x1`` with.
         x1 : `LinearSpaceVector`
-            The first of the summands
-        b : Scalar, optional
-            Scalar to multiply ``x2`` with.
+            First vector in the linear combination.
+        b : `field` element, optional
+            Scalar to multiply ``x2`` with. Required if ``x2`` is 
+            provided.
         x2 : `LinearSpaceVector`, optional
-            The second of the summands
+            Second vector in the linear combination.
         out : `LinearSpaceVector`, optional
-            The Vector that the result should be written to.
+            Element to which the result is written.
 
         Returns
         -------
@@ -226,217 +204,206 @@ class LinearSpace(Set):
         -----
         The vectors ``out``, ``x1`` and ``x2`` may be aligned, thus a call
 
-        ``space.lincomb(x, 2, x, 3.14, out=x)``
+            ``space.lincomb(x, 2, x, 3.14, out=x)``
 
         is (mathematically) equivalent to
 
-        ``x = x * (1 + 2 + 3.14)``
+            ``x = x * (1 + 2 + 3.14)``.
         """
         if out is None:
             out = self.element()
-        elif out not in self:
-            raise LinearSpaceTypeError('output vector {!r} not in space {!r}.'
+
+        if out not in self:
+            raise LinearSpaceTypeError('`out` {!r} is not an element of {!r}'
                                        ''.format(out, self))
-
         if a not in self.field:
-            raise LinearSpaceTypeError('first scalar {!r} not in the field '
-                                       '{!r} of the space {!r}.'
+            raise LinearSpaceTypeError('`a` {!r} not an element of the field '
+                                       '{!r} of {!r}'
                                        ''.format(a, self.field, self))
-
         if x1 not in self:
-            raise LinearSpaceTypeError('first input vector {!r} '
-                                       'not in space {!r}.'
+            raise LinearSpaceTypeError('`x1` {!r} is not an element of {!r}'
                                        ''.format(x1, self))
 
-        if b is None:  # Single argument
+        if b is None:  # Single vector
             if x2 is not None:
-                raise ValueError('second input vector provided but no '
-                                 'second scalar.')
+                raise ValueError('`x2` provided but not `b`')
             self._lincomb(a, x1, 0, x1, out)
             return out
 
-        else:  # Two arguments
+        else:  # Two vectors
             if b not in self.field:
-                raise LinearSpaceTypeError('second scalar {!r} not in the '
-                                           'field {!r} of the space {!r}.'
+                raise LinearSpaceTypeError('`b` {!r} not an element of the '
+                                           'field {!r} of {!r}'
                                            ''.format(b, self.field, self))
-
             if x2 not in self:
-                raise LinearSpaceTypeError('second input vector {!r} not '
-                                           'in space {!r}.'.format(x2, self))
+                raise LinearSpaceTypeError('`x2` {!r} is not an element of '
+                                           '{!r}'.format(x2, self))
 
-            # Call method
             self._lincomb(a, x1, b, x2, out)
 
         return out
 
     def dist(self, x1, x2):
-        """Calculate the distance between two vectors.
+        """Return the distance between ``x1`` and ``x2``.
 
         Parameters
         ----------
         x1, x2 : `LinearSpaceVector`
-            Vectors whose distance to compute
+            Elements whose distance to compute.
 
         Returns
         -------
         dist : float
-               Distance between vectors
+            Distance between ``x1`` and ``x2``.
         """
         if x1 not in self:
-            raise LinearSpaceTypeError('first vector {!r} not in space {!r}'
-                                       ''.format(x1, self))
+            raise LinearSpaceTypeError('`x1` {!r} is not an element of '
+                                       '{!r}'.format(x1, self))
         if x2 not in self:
-            raise LinearSpaceTypeError('second vector {!r} not in space {!r}'
-                                       ''.format(x2, self))
+            raise LinearSpaceTypeError('`x2` {!r} is not an element of '
+                                       '{!r}'.format(x2, self))
 
         return float(self._dist(x1, x2))
 
     def norm(self, x):
-        """Calculate the norm of a vector.
+        """Return the norm of ``x``.
 
         Parameters
         ----------
         x : `LinearSpaceVector`
-            The vector
+            Element whose norm to compute.
 
         Returns
         -------
-        out : float
-            Norm of the vector
+        norm : float
+            Norm of ``x``.
         """
         if x not in self:
-            raise LinearSpaceTypeError('vector {!r} not in space {!r}'
-                                       ''.format(x, self))
+            raise LinearSpaceTypeError('`x` {!r} is not an element of '
+                                       '{!r}'.format(x, self))
 
         return float(self._norm(x))
 
     def inner(self, x1, x2):
-        """Calculate the inner product of ``x1`` and ``x2``.
+        """Return the inner product of ``x1`` and ``x2``.
 
         Parameters
         ----------
         x1, x2 : `LinearSpaceVector`
-            Factors in the inner product
+            Elements whose inner product to compute.
 
         Returns
         -------
-        out : `LinearSpace.field` element
-            Product of the vectors. If ``out`` was provided, the
-            returned object is a reference to it.
+        inner : `LinearSpace.field` element
+            Inner product of ``x1`` and ``x2``.
         """
         if x1 not in self:
-            raise LinearSpaceTypeError('first vector {!r} not in space {!r}'
-                                       ''.format(x1, self))
+            raise LinearSpaceTypeError('`x1` {!r} is not an element of '
+                                       '{!r}'.format(x1, self))
         if x2 not in self:
-            raise LinearSpaceTypeError('second vector {!r} not in space {!r}'
-                                       ''.format(x2, self))
+            raise LinearSpaceTypeError('`x2` {!r} is not an element of '
+                                       '{!r}'.format(x2, self))
 
         return self.field.element(self._inner(x1, x2))
 
     def multiply(self, x1, x2, out=None):
-        """Calculate the pointwise product of ``x1`` and ``x2``.
+        """Return the pointwise product of ``x1`` and ``x2``.
 
         Parameters
         ----------
         x1, x2 : `LinearSpaceVector`
-            Multiplicands in the product
-
+            Multiplicands in the product.
         out : `LinearSpaceVector`, optional
-            Vector to write the product to
+            Element to which the result is written.
 
         Returns
         -------
         out : `LinearSpaceVector`
-            Product of the vectors. If ``out`` was provided, the
+            Product of the elements. If ``out`` was provided, the
             returned object is a reference to it.
         """
         if out is None:
             out = self.element()
-        elif out not in self:
-            raise LinearSpaceTypeError('out {!r} not in space {!r}'
-                                       ''.format(out, self))
 
+        if out not in self:
+            raise LinearSpaceTypeError('`out` {!r} is not an element of '
+                                       '{!r}'.format(out, self))
         if x1 not in self:
-            raise LinearSpaceTypeError('x1 {!r} not in space {!r}'
-                                       ''.format(x1, self))
+            raise LinearSpaceTypeError('`x1` {!r} is not an element of '
+                                       '{!r}'.format(x1, self))
         if x2 not in self:
-            raise LinearSpaceTypeError('x2 {!r} not in space {!r}'
-                                       ''.format(x2, self))
+            raise LinearSpaceTypeError('`x2` {!r} is not an element of '
+                                       '{!r}'.format(x2, self))
 
         self._multiply(x1, x2, out)
         return out
 
     def divide(self, x1, x2, out=None):
-        """Calculate the pointwise division of ``x1`` and ``x2``
+        """Return the pointwise quotient of ``x1`` and ``x2``
 
         Parameters
         ----------
         x1 : `LinearSpaceVector`
-            The dividend
-
+            Dividend in the quotient.
         x2 : `LinearSpaceVector`
-            The divisor
-
+            Divisor in the quotient.
         out : `LinearSpaceVector`, optional
-            Vector to write the ratio to
+            Element to which the result is written.
 
         Returns
         -------
         out : `LinearSpaceVector`
-            Ratio of the vectors. If ``out`` was provided, the
+            Quotient of the elements. If ``out`` was provided, the
             returned object is a reference to it.
         """
         if out is None:
             out = self.element()
-        elif out not in self:
-            raise LinearSpaceTypeError('out {!r} not in space {!r}'
-                                       ''.format(out, self))
 
+        if out not in self:
+            raise LinearSpaceTypeError('`out` {!r} is not an element of '
+                                       '{!r}'.format(out, self))
         if x1 not in self:
-            raise LinearSpaceTypeError('x1 {!r} not in space {!r}'
-                                       ''.format(x1, self))
+            raise LinearSpaceTypeError('`x1` {!r} is not an element of '
+                                       '{!r}'.format(x1, self))
         if x2 not in self:
-            raise LinearSpaceTypeError('x2 {!r} not in space {!r}'
-                                       ''.format(x2, self))
+            raise LinearSpaceTypeError('`x2` {!r} is not an element of '
+                                       '{!r}'.format(x2, self))
 
         self._divide(x1, x2, out)
         return out
 
     @property
     def element_type(self):
-        """ `LinearSpaceVector` """
+        """Type of elements of this space."""
         return LinearSpaceVector
 
 
 class LinearSpaceVector(object):
     """Abstract `LinearSpace` element.
 
-    Not intended for creation of vectors, use the space's
-    `LinearSpace.element` method instead.
+    Do not use this class directly -- to create an element of a vector
+    space, call the space's `LinearSpace.element` method instead.
     """
 
     def __init__(self, space):
-        """Default initializer of vectors.
+        """Initialize a new instance.
 
-        All deriving classes must call this method to set space.
+        All deriving classes must call this method to set the `space` 
+        property.
         """
         if not isinstance(space, LinearSpace):
-            raise TypeError('space {!r} is not a `LinearSpace` instance'
+            raise TypeError('`space` {!r} is not a `LinearSpace` instance'
                             ''.format(space))
         self._space = space
 
     @property
     def space(self):
-        """Space to which this vector belongs.
-
-        `LinearSpace`
-        """
+        """Space to which this vector belongs."""
         return self._space
 
     # Convenience functions
     def assign(self, other):
-        """Assign the values of ``other`` to self."""
+        """Assign the values of ``other`` to ``self``."""
         return self.space.lincomb(1, other, out=self)
 
     def copy(self):
@@ -446,18 +413,32 @@ class LinearSpaceVector(object):
         return result
 
     def lincomb(self, a, x1, b=None, x2=None):
-        """Assign a linear combination to this vector.
+        """Implement ``self[:] = a * x1 + b * x2``.
 
-        Implemented as ``space.lincomb(a, x1, b, x2, out=self)``.
+        Parameters
+        ----------
+        a : element of ``space.field``
+            Scalar to multiply ``x1`` with.
+        x1 : `LinearSpaceVector`
+            First vector in the linear combination.
+        b : element of ``space.field``, optional
+            Scalar to multiply ``x2`` with. Required if ``x2`` is 
+            provided.
+        x2 : `LinearSpaceVector`, optional
+            Second vector in the linear combination.
 
-        `LinearSpace.lincomb`
+        See also
+        --------
+        LinearSpace.lincomb
         """
         return self.space.lincomb(a, x1, b, x2, out=self)
 
     def set_zero(self):
         """Set this vector to zero.
 
-        `LinearSpace.zero`
+        See also
+        --------
+        LinearSpace.zero
         """
         return self.space.lincomb(0, self, 0, self, out=self)
 
@@ -564,7 +545,7 @@ class LinearSpaceVector(object):
         return self.__mul__(other)
 
     def __itruediv__(self, other):
-        """Implement ``self /= other`` (true division)."""
+        """Implement ``self /= other``."""
         if other in self.space.field:
             return self.space.lincomb(1.0 / other, self, out=self)
         elif other in self.space:
@@ -605,9 +586,10 @@ class LinearSpaceVector(object):
     __rdiv__ = __rtruediv__
 
     def __ipow__(self, n):
-        """``n``-th power in-place.
+        """Implement ``self **= n``.
 
-        This is only defined for integer ``n``."""
+        Only implemented for integer ``n``.
+        """
         if n < 0:
             self **= -n
             self.space.divide(self.space.one(), self, out=self)
@@ -629,48 +611,52 @@ class LinearSpaceVector(object):
             return self
 
     def __pow__(self, n):
-        """``n``-th power.
+        """Return ``self ** n``.
 
-        This is only defined for integer ``n``."""
+        Only implemented for integer ``n``.
+        """
         tmp = self.copy()
         tmp **= n
         return tmp
 
     def __neg__(self):
-        """Implementation of ``-self``."""
+        """Return ``-self``."""
         return (-1) * self
 
     def __pos__(self):
-        """Implementation of ``+self``."""
+        """Return ``+self``."""
         return self.copy()
 
     # Metric space method
     def __eq__(self, other):
         """Return ``self == other``.
 
-        Two vectors are equal if their distance is 0
+        Two elements are equal if their distance is zero.
 
         Parameters
         ----------
         other : `LinearSpaceVector`
-            Vector in this space.
+            Element of this space.
 
         Returns
         -------
         equals : bool
-            True if the vectors are equal, else false.
+            True if the vectors are equal, else False.
+
+        See also
+        --------
+        LinearSpace.dist
 
         Notes
         -----
         Equality is very sensitive to numerical errors, thus any
-        operations on a vector should be expected to break equality
-        testing.
+        arithmetic operations should be expected to break equality.
 
         Examples
         --------
-        >>> from odl import Rn
+        >>> import odl
         >>> import numpy as np
-        >>> rn = Rn(1, norm=np.linalg.norm)
+        >>> rn = odl.Rn(1, norm=np.linalg.norm)
         >>> x = rn.element([0.1])
         >>> x == x
         True
@@ -678,7 +664,7 @@ class LinearSpaceVector(object):
         >>> x == y
         True
         >>> z = rn.element([0.3])
-        >>> x+x+x == z
+        >>> x + x + x == z
         False
         """
         if (not isinstance(other, LinearSpaceVector) or
@@ -687,7 +673,7 @@ class LinearSpaceVector(object):
             # reflexive.
             return False
         elif other is self:
-            # Optimization for the most common case
+            # Optimization for a common case
             return True
         else:
             return self.space.dist(self, other) == 0
@@ -699,14 +685,16 @@ class LinearSpaceVector(object):
     def __str__(self):
         """Return ``str(self)``.
 
-        This is a default implementation, only returning the space.
+        This is a default implementation that does not print any
+        information about the contents of the element.
         """
         return str(self.space) + "Vector"
 
     def __repr__(self):
         """Return ``repr(self)``.
 
-        This is a default implementation, only returning the space.
+        This is a default implementation that does not print any
+        information about the contents of the element.
         """
         return repr(self.space) + "Vector"
 
@@ -720,7 +708,7 @@ class LinearSpaceVector(object):
         return self.copy()
 
     def __deepcopy__(self, memo):
-        """Return a copy of this vector.
+        """Return a deep copy of this vector.
 
         See also
         --------
@@ -729,7 +717,7 @@ class LinearSpaceVector(object):
         return self.copy()
 
     def norm(self):
-        """Norm of this vector.
+        """Return the norm of this vector.
 
         See also
         --------
@@ -738,7 +726,7 @@ class LinearSpaceVector(object):
         return self.space.norm(self)
 
     def dist(self, other):
-        """Distance to ``other``.
+        """Return the distance of ``self`` to ``other``.
 
         See also
         --------
@@ -747,7 +735,7 @@ class LinearSpaceVector(object):
         return self.space.dist(self, other)
 
     def inner(self, other):
-        """Inner product with ``other``.
+        """Return the inner product of ``self`` and ``other``.
 
         See also
         --------
@@ -756,7 +744,7 @@ class LinearSpaceVector(object):
         return self.space.inner(self, other)
 
     def multiply(self, x, y):
-        """Implement ``self = x * y`` without creating new vectors.
+        """Implement ``self[:] = x * y`` without creating new vectors.
 
         See also
         --------
@@ -765,7 +753,7 @@ class LinearSpaceVector(object):
         return self.space.multiply(x, y, out=self)
 
     def divide(self, x, y):
-        """Implement ``self = x / y`` without creating new vectors.
+        """Implement ``self[:] = x / y`` without creating new vectors.
 
         See also
         --------
@@ -785,14 +773,14 @@ class LinearSpaceVector(object):
         -----
         This function is only defined in inner product spaces.
 
-        In a complex space, this takes the conjugate transpose of
-        the vector.
+        In a complex space, the conjugate transpose of is taken instead
+        of the transpose only.
 
         Examples
         --------
-        >>> from odl import Rn
+        >>> import odl
         >>> import numpy as np
-        >>> rn = Rn(3)
+        >>> rn = odl.Rn(3)
         >>> x = rn.element([1, 2, 3])
         >>> y = rn.element([2, 1, 3])
         >>> x.T(y)
@@ -808,13 +796,14 @@ class LinearSpaceVector(object):
 
 
 class UniversalSpace(LinearSpace):
+
     """A dummy linear space class.
 
     Mostly raising `LinearSpaceNotImplementedError`.
     """
 
     def __init__(self):
-        """Initialize a universal space."""
+        """Initialize a new instance."""
         LinearSpace.__init__(self, field=UniversalSet())
 
     def element(self, inp=None):
@@ -883,16 +872,16 @@ class UniversalSpace(LinearSpace):
 class LinearSpaceTypeError(TypeError):
     """Exception for type errors in `LinearSpace`'s.
 
-    These are raised when the wrong type of element is fed to
+    This exception is raised when the wrong type of element is fed to
     `LinearSpace.lincomb` and related functions.
     """
 
 
 class LinearSpaceNotImplementedError(NotImplementedError):
-    """Exception for not implemented errors in `LinearSpace`'s.
+    """Exception for unimplemented functionality in `LinearSpace`'s.
 
-    These are raised when a method is called in `LinearSpace` that
-    has not been defined in a specific space.
+    This exception is raised when a method is called in `LinearSpace`
+    that has not been defined in a specific space.
     """
 
 
