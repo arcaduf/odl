@@ -46,10 +46,10 @@ def chambolle_pock_solver(op, x, tau, sigma, proximal_primal, proximal_dual,
     optimization problems with known saddle-point structure. The
     primal formulation of the general problem is::
 
-        min_{x in X} F(K x) + G(x)
+        min_{x in X} F(K(x)) + G(x)
 
     where ``X`` and ``Y`` are finite-dimensional Hilbert spaces, ``K``
-    is a linear operator ``K : X -> Y``.  and ``G : X -> [0, +inf]``
+    is an operator ``K : X -> Y``.  and ``G : X -> [0, +inf]``
     and ``F : Y -> [0, +inf]`` are proper, convex, lower-semicontinuous
     functionals.
 
@@ -62,8 +62,7 @@ def chambolle_pock_solver(op, x, tau, sigma, proximal_primal, proximal_dual,
     Parameters
     ----------
     op : `Operator`
-        A (product space) operator between Hilbert spaces with domain X
-        and range Y
+        A operator between Hilbert spaces with domain X and range Y
     x : element in the domain of ``op``
         Starting point of the iteration
     tau : positive `float`
@@ -115,6 +114,8 @@ def chambolle_pock_solver(op, x, tau, sigma, proximal_primal, proximal_dual,
 
     This implementation of the CP algorithm is along the lines of
     [Sid+2012]_.
+
+    For analysis of the case with nonlinear K, see [Val2014]_.
 
     For more on convex analysis including convex conjugates and
     resolvent operators see [Roc1970]_.
@@ -192,9 +193,6 @@ def chambolle_pock_solver(op, x, tau, sigma, proximal_primal, proximal_dual,
     # Temporal copy to store previous iterate
     x_old = x.space.element()
 
-    # Adjoint of the (product space) operator
-    op_adjoint = op.adjoint
-
     for _ in range(niter):
         # Copy required for relaxation
         x_old.assign(x)
@@ -204,7 +202,7 @@ def chambolle_pock_solver(op, x, tau, sigma, proximal_primal, proximal_dual,
         proximal_dual(sigma)(dual_tmp, out=y)
 
         # Gradient descent in the primal variable x
-        primal_tmp = x + (- tau) * op_adjoint(y)
+        primal_tmp = x + (- tau) * op.derivative(x).adjoint(y)
         proximal_primal(tau)(primal_tmp, out=x)
 
         # Acceleration

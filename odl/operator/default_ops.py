@@ -376,10 +376,8 @@ class PowerOperator(Operator):
 
     """The power of a vector or scalar.
 
-    ``MultiplyOperator(n)(x) <==> x ** n``
+    ``PowerOperator(space, n)(x) <==> x ** n``
 
-    Here, ``x`` is a `LinearSpaceVector` or `Field` element and
-    ``y`` is a number.
     Hence, this operator can be defined either on a `LinearSpace` or on
     a `Field`.
     """
@@ -389,10 +387,10 @@ class PowerOperator(Operator):
 
         Parameters
         ----------
-        exponent : Number
-            The power to take
         domain : `LinearSpace` or `Field`, optional
             The set to take values in
+        exponent : Number
+            The power to take
         """
 
         self.exponent = float(exponent)
@@ -442,7 +440,7 @@ class PowerOperator(Operator):
     def derivative(self, point):
         """The derivative operator.
 
-        ``MultiplyOperator(n).derivative(x)(y) <==> n * x ** (n - 1) * y``
+        ``PowerOperator(space, n).derivative(x)(y) <==> n * x ** (n - 1) * y``
 
         Parameters
         ----------

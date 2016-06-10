@@ -70,4 +70,6 @@ References
    *Introduction to Fourier Analysis on Euclidean Spaces*.
    Princeton University Press, 1971.
 
-
+.. [Val2014] T. Valkonen
+    A primal-dual hybrid gradient method for non-linear operators with
+    applications to MRI. Inverse Problems, 30 (2014).
