@@ -33,11 +33,11 @@ def compute_varlp_prox_scalar(f, p, out, s, max_newton_iter=5):
 
     Signature::
 
-        compute_varlp_prox_scalar_f32(np.ndarray f,
-                                      np.ndarray p,
-                                      np.ndarray out,
-                                      float s,
-                                      int max_newton_iter)
+        compute_varlp_prox_scalar(np.ndarray f,
+                                  np.ndarray p,
+                                  np.ndarray out,
+                                  float s,
+                                  int max_newton_iter)
     """
     if (f.dtype == np.float32 and
             p.dtype == np.float32 and
@@ -91,7 +91,7 @@ cpdef compute_varlp_prox_scalar_f32(
 
 # --- Double precision --- #
 
-FLOAT = np.float64
+DOUBLE = np.float64
 ctypedef np.float64_t FLOAT64_T
 
 
@@ -118,7 +118,7 @@ cpdef compute_varlp_prox_scalar_f64(
                                            float64 s,
                                            int max_newton_iter)
     """
-    assert (f.dtype == FLOAT and p.dtype == FLOAT and out.dtype == FLOAT)
+    assert (f.dtype == DOUBLE and p.dtype == DOUBLE and out.dtype == DOUBLE)
     cdef int n = f.shape[0]
     compute_varlp_prox_scalar__double(&f[0], &p[0], &out[0], n, s,
                                      max_newton_iter)

@@ -116,11 +116,15 @@ Features
 # - language (string)
 # - optional (bool)
 
+numpy_include_dir = os.path.join(np.__path__[0], 'core/include')
+
 cython_modules = {
     'odl/solvers/advanced/var_lp_prox_c.pyx': {
         'sources': ['odl/solvers/advanced/c_src/var_lp_prox.c'],
         'libraries': ['m'],
-        'include_dirs': [os.path.join(np.__path__[0], 'core/include')]}
+        'include_dirs': [numpy_include_dir]},
+    'odl/solvers/advanced/var_lp_prox_cy.pyx': {
+        'include_dirs': [numpy_include_dir]}
 }
 
 

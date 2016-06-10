@@ -20,7 +20,16 @@
 
 #include <math.h>
 
+
 #if defined SINGLE
+
+#undef FLOAT
+#undef MAX
+#undef MIN
+#undef ABS
+#undef POW
+#undef IMPL
+
 #define FLOAT float
 #define MAX fmaxf
 #define MIN fminf
@@ -28,13 +37,23 @@
 #define POW powf
 #define IMPL(fname) fname ## __float
 
+
 #elif defined DOUBLE
+
+#undef FLOAT
+#undef MAX
+#undef MIN
+#undef ABS
+#undef POW
+#undef IMPL
+
 #define FLOAT double
 #define MAX fmax
 #define MIN fmin
 #define ABS fabs
 #define POW pow
 #define IMPL(fname) fname ## __double
+
 
 #else
 #error "Either SINGLE or DOUBLE must be defined!"

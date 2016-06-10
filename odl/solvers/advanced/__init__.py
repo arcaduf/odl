@@ -30,5 +30,7 @@ __all__ += proximal_operators.__all__
 try:
     from .var_lp_prox_c import *
     __all__ += var_lp_prox_c.__all__
+    from .var_lp_prox_cy import *
+    __all__ += var_lp_prox_cy.__all__
 except ImportError:
     pass

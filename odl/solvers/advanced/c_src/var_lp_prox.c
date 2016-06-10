@@ -20,6 +20,7 @@
 #define SINGLE
 #include "var_lp_prox_impl.c"
 
+
 #undef SINGLE
 #define DOUBLE
 #include "var_lp_prox_impl.c"

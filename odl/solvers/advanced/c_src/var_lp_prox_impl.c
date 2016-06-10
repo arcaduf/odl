@@ -51,13 +51,14 @@ FLOAT IMPL(denominator)(FLOAT it, FLOAT p, FLOAT sigma){
 FLOAT IMPL(newton_iter)(FLOAT val, FLOAT sigma, FLOAT p, int niter, FLOAT start_relax){
 
     // Start value which guarantees convergence
+    int i;
     FLOAT it, startval, denom, numer;
 
     startval = IMPL(startvalue)(val, p, sigma);
     startval *= start_relax;
 
     // The iteration itself
-    for(int i = 0, it = startval; i < niter; i++){
+    for(i = 0, it = startval; i < niter; i++){
         denom = IMPL(denominator)(it, p, sigma);
         numer = IMPL(numerator)(it, p, sigma, val);
         it = numer / denom;
@@ -82,9 +83,10 @@ FLOAT IMPL(varlp_prox_2)(FLOAT f, FLOAT s){
 
 void IMPL(compute_varlp_prox_scalar)(FLOAT *f, FLOAT *p, FLOAT *out, int n, FLOAT s,
                                      int max_newton_iter){
+    int i;
     assert((f != NULL) && (p != NULL) & (out != NULL));
 
-    for(int i = 0; i < n; i++){
+    for(i = 0; i < n; i++){
         if(f[i] == 0.0)
             out[i] = 0.0;
         else if(p[i] <= 1.05)
