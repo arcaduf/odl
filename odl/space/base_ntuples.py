@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with ODL.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Base classes for implementation of n-tuples."""
+"""Base classes for implementations of n-tuples."""
 
 # Imports for common Python 2/3 codebase
 from __future__ import print_function, division, absolute_import
@@ -55,31 +55,32 @@ class NtuplesBase(Set):
         Parameters
         ----------
         size : non-negative int
-            The number of entries per tuple
+            Number of entries in a tuple.
         dtype :
-            The data type for each tuple entry. Can be provided in any
+            Data type for each tuple entry. Can be provided in any
             way the `numpy.dtype` function understands, most notably
             as built-in type, as one of NumPy's internal datatype
             objects or as string.
         """
         self._size = int(size)
         if self.size < 0:
-            raise TypeError('size {!r} is not non-negative.'.format(size))
+            raise ValueError('`size` must be non-negative, got {}'
+                             ''.format(size))
         self._dtype = np.dtype(dtype)
 
     @property
     def dtype(self):
-        """The data type of each entry."""
+        """Data type of each entry."""
         return self._dtype
 
     @property
     def size(self):
-        """The number of entries per tuple."""
+        """Number of entries per tuple."""
         return self._size
 
     @property
     def shape(self):
-        """The shape of this space."""
+        """Shape ``(size,)`` of this space."""
         return (self.size,)
 
     def __contains__(self, other):
@@ -115,23 +116,14 @@ class NtuplesBase(Set):
 
         Examples
         --------
-        >>> from odl import Ntuples
-        >>> int_3 = Ntuples(3, dtype=int)
-        >>> int_3 == int_3
-        True
-
-        Equality is not identity:
-
-        >>> int_3a, int_3b = Ntuples(3, int), Ntuples(3, int)
+        >>> import odl
+        >>> int_3a, int_3b = odl.Ntuples(3, int), odl.Ntuples(3, int)
         >>> int_3a == int_3b
         True
-        >>> int_3a is int_3b
-        False
-
-        >>> int_3, int_4 = Ntuples(3, int), Ntuples(4, int)
+        >>> int_3, int_4 = odl.Ntuples(3, int), odl.Ntuples(4, int)
         >>> int_3 == int_4
         False
-        >>> int_3, str_3 = Ntuples(3, 'int'), Ntuples(3, 'S2')
+        >>> int_3, str_3 = odl.Ntuples(3, 'int'), odl.Ntuples(3, 'S2')
         >>> int_3 == str_3
         False
         """
@@ -150,16 +142,16 @@ class NtuplesBase(Set):
 
     @property
     def element_type(self):
-        """ `NtuplesBaseVector` """
+        """Type of elements of this space (`NtuplesBaseVector`)."""
         return NtuplesBaseVector
 
 
 class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
-    """Abstract class for representation of `NtuplesBase` elements.
+    """Abstract class for `NtuplesBase` elements.
 
-    Defines abstract attributes and concrete ones which are
-    independent of data representation.
+    Do not use this class directly -- to create an element of a vector
+    space, call the space's `LinearSpace.element` method instead.
     """
 
     def __init__(self, space, *args, **kwargs):
@@ -168,61 +160,67 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
     @abstractmethod
     def copy(self):
-        """Create an identical (deep) copy of this vector."""
+        """Return an identical (deep) copy of this vector."""
 
     @abstractmethod
     def asarray(self, start=None, stop=None, step=None, out=None):
-        """Extract the data of this array as a numpy array.
+        """Return the data of this vector as a numpy array.
 
         Parameters
         ----------
         start : int, optional
-            Start position. None means the first element.
-        start : int, optional
-            One element past the last element to be extracted.
-            None means the last element.
-        start : int, optional
-            Step length. None means 1.
+            Index of the first vector entry to be included in
+            the extracted array. ``None`` is equivalent to 0.
+        stop : int, optional
+            Index of the first vector entry to be excluded from
+            the extracted array. ``None`` is equivalent to `size`.
+        step : int, optional
+            Vector index step between consecutive array ellements.
+            ``None`` is equivalent to 1.
         out : numpy.ndarray
-            Array to write result to.
+            Array to write the result to.
 
         Returns
         -------
-        asarray : numpy.ndarray
-            Numpy array of the same type as the space.
+        out : numpy.ndarray
+            Numpy array of the same `dtype` as this vector. If ``out``
+            was given, the returned object is a reference to it.
         """
 
     @abstractmethod
     def __getitem__(self, indices):
-        """Access values of this vector.
+        """Return ``self[indices]``.
 
         Parameters
         ----------
         indices : int or slice
-            The position(s) that should be accessed
+            The position(s) that should be accessed. An integer results
+            in a single entry to be returned. For a slice, the output
+            is a vector of the same type.
 
         Returns
         -------
         values : `NtuplesBase.dtype` or `NtuplesBaseVector`
-            The value(s) at the index (indices)
+            Extracted entries according to ``indices``.
         """
 
     @abstractmethod
     def __setitem__(self, indices, values):
-        """Set values of this vector.
+        """Implement ``self[indices] = values``.
 
         Parameters
         ----------
         indices : int or slice
-            The position(s) that should be set
+            The position(s) that should be assigned to.
         values : scalar, array-like or `NtuplesBaseVector`
             The value(s) that are to be assigned.
 
-            If ``index`` is an integer, ``value`` must be single value.
+            If ``index`` is an integer, ``value`` must be a single
+            value.
 
             If ``index`` is a slice, ``value`` must be broadcastable
-            to the size of the slice (same size, shape (1,)
-            or single value).
+            to the shape of the slice, i.e. same size, shape ``(1,)``
+            or a single value.
         """
 
     @abstractmethod
@@ -238,17 +236,17 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
     @property
     def space(self):
-        """Space to which this vector."""
+        """Space to which this vector belongs."""
         return self._space
 
     @property
     def ndim(self):
-        """Number of dimensions, always 1."""
+        """Number of dimensions of this vector's space, always 1."""
         return 1
 
     @property
     def dtype(self):
-        """Length of this vector, equal to space size."""
+        """Data type of this vector's space."""
         return self.space.dtype
 
     @property
@@ -258,33 +256,34 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
     @property
     def shape(self):
-        """Number of entries per axis, equals (size,) for linear storage."""
+        """Number of entries per axis, equals ``(size,)``."""
         return self.space.shape
 
     @property
     def itemsize(self):
-        """The size in bytes on one element of this type."""
+        """Size in bytes of one element of this vector."""
         return self.dtype.itemsize
 
     @property
     def nbytes(self):
-        """The number of bytes this vector uses in memory."""
+        """Number of bytes this vector uses in memory."""
         return self.size * self.itemsize
 
     def __len__(self):
         """Return ``len(self)``.
 
-        Return the number of space dimensions.
+        Equal to the number of space dimensions.
         """
         return self.space.size
 
+    # The following two methods are for direct interfacing with Numpy
     def __array__(self, dtype=None):
-        """Return a numpy array of this ntuple.
+        """Return a Numpy array of this vector.
 
         Parameters
         ----------
         dtype :
-            Specifier for the data type of the output array
+            Specifier for the data type of the output array.
 
         Returns
         -------
@@ -296,16 +295,17 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
             return self.asarray().astype(dtype, copy=False)
 
     def __array_wrap__(self, obj):
-        """Return a new vector from the data in obj.
+        """Return a new vector from the data in ``obj``.
 
         Parameters
         ----------
         obj : numpy.ndarray
-            The array that should be wrapped
+            Array that should be wrapped.
 
         Returns
         -------
-            vector : `NtuplesBaseVector`
+        vector : `NtuplesBaseVector`
+            Numpy array wrapped back into this vector's element type.
         """
         if obj.ndim == 0:
             return self.space.field.element(obj)
@@ -316,27 +316,18 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
         """Return ``self != other``."""
         return not self.__eq__(other)
 
-    def __str__(self):
-        """Return ``str(self)``."""
-        return array1d_str(self)
-
-    def __repr__(self):
-        """Return ``repr(self)``."""
-        return '{!r}.element({})'.format(self.space,
-                                         array1d_repr(self))
-
     @property
     def ufunc(self):
-        """`NtuplesBaseUFuncs`, access to numpy style ufuncs.
+        """Internal class for access to Numpy style universal functions.
 
-        These are always available, but may or may not be optimized for
-        the specific space in use.
+        These default ufuncs are always available, but may or may not be
+        optimized for the specific space in use.
         """
         return NtuplesBaseUFuncs(self)
 
     def show(self, title=None, method='scatter', show=False, fig=None,
              **kwargs):
-        """Display the function graphically.
+        """Display this vector graphically.
 
         Parameters
         ----------
@@ -344,30 +335,30 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
             Set the title of the figure
 
         method : string, optional
-            1d methods:
-
-            'plot' : graph plot
+            The following plotting methods are available:
 
             'scatter' : point plot
 
+            'plot' : graph plot
+
         show : bool, optional
-            If the plot should be showed now or deferred until later.
-
-        fig : `matplotlib.figure.Figure`
-            The figure to show in. Expected to be of same "style", as
+            If True, the plot is shown immediately. Otherwise, display is
+            deferred to a later point in time.
+        fig : `matplotlib.figure.Figure`, optional
+            Figure to draw into. Expected to be of same "style" as
             the figure given by this function. The most common use case
-            is that ``fig`` is the return value from an earlier call to
+            is that ``fig`` is the return value of an earlier call to
             this function.
-
         kwargs : {'figsize', 'saveto', ...}
-            Extra keyword arguments passed on to display method
+            Extra keyword arguments passed on to the display method.
             See the Matplotlib functions for documentation of extra
             options.
 
         Returns
         -------
         fig : `matplotlib.figure.Figure`
-            The resulting figure. It is also shown to the user.
+            Resulting figure. If ``fig`` was given, the returned object
+            is a reference to it.
 
         See Also
         --------
@@ -379,20 +370,29 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
         return show_discrete_data(self.asarray(), grid, title=title,
                                   method=method, show=show, fig=fig, **kwargs)
 
+    def __str__(self):
+        """Return ``str(self)``."""
+        return array1d_str(self)
+
+    def __repr__(self):
+        """Return ``repr(self)``."""
+        return '{!r}.element({})'.format(self.space,
+                                         array1d_repr(self))
+
 
 class FnBase(NtuplesBase, LinearSpace):
 
-    """Base class for :math:`F^n` independent of implementation."""
+    """Base class for n-tuples over a field independent of implementation."""
 
     def __init__(self, size, dtype):
         """Initialize a new instance.
 
         Parameters
         ----------
-        size : int
-            The number of dimensions of the space
+        size : non-negative int
+            Number of entries in a tuple.
         dtype :
-            The data type of the storage array. Can be provided in any
+            Data type for each tuple entry. Can be provided in any
             way the `numpy.dtype` function understands, most notably
             as built-in type, as one of NumPy's internal datatype
             objects or as string.
@@ -448,11 +448,11 @@ class FnBase(NtuplesBase, LinearSpace):
         Returns
         -------
         newspace : `FnBase`
-            The version of this space with given data type
+            The version of this space with given data type.
         """
         if dtype is None:
             # Need to filter this out since Numpy iterprets it as 'float'
-            raise ValueError("Unknown data type 'None'.")
+            raise ValueError("unknown data type 'None'.")
 
         dtype = np.dtype(dtype)
         if dtype == self.dtype:
@@ -472,7 +472,7 @@ class FnBase(NtuplesBase, LinearSpace):
 
     @property
     def examples(self):
-        """Return example random vectors."""
+        """Example random vectors."""
         # Always return the same numbers
         rand_state = np.random.get_state()
         np.random.seed(1337)
@@ -492,38 +492,40 @@ class FnBase(NtuplesBase, LinearSpace):
 
     @abstractmethod
     def zero(self):
-        """Create a vector of zeros."""
+        """Return a vector of zeros."""
 
     @abstractmethod
     def one(self):
-        """Create a vector of ones."""
+        """Return a vector of ones."""
 
     @abstractmethod
     def _multiply(self, x1, x2, out):
-        """The entry-wise product of two vectors, assigned to ``out``."""
+        """Implement ``out[:] = x1 * x2`` (entry-wise)."""
 
     @abstractmethod
     def _divide(self, x1, x2, out):
-        """The entry-wise division of two vectors, assigned to ``out``."""
+        """Implement ``out[:] = x1 / x2`` (entry-wise)."""
 
     @property
     def element_type(self):
-        """ `FnBaseVector` """
+        """Type of elements of this space (`FnBaseVector`)."""
         return FnBaseVector
 
 
 class FnBaseVector(NtuplesBaseVector, LinearSpaceVector):
 
-    """Abstract class for representation of `FnBase` vectors.
+    """Abstract class for `NtuplesBase` elements.
 
-    Defines abstract attributes and concrete ones which are
-    independent of data representation.
+    Do not use this class directly -- to create an element of a vector
+    space, call the space's `LinearSpace.element` method instead.
     """
 
     def __eq__(self, other):
+        """Return ``self == other``."""
         return LinearSpaceVector.__eq__(self, other)
 
     def copy(self):
+        """Return a (deep) copy of this vector."""
         return LinearSpaceVector.copy(self)
 
 

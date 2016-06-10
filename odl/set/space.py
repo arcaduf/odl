@@ -187,7 +187,7 @@ class LinearSpace(Set):
         x1 : `LinearSpaceVector`
             First vector in the linear combination.
         b : `field` element, optional
-            Scalar to multiply ``x2`` with. Required if ``x2`` is 
+            Scalar to multiply ``x2`` with. Required if ``x2`` is
             provided.
         x2 : `LinearSpaceVector`, optional
             Second vector in the linear combination.
@@ -374,12 +374,13 @@ class LinearSpace(Set):
 
     @property
     def element_type(self):
-        """Type of elements of this space."""
+        """Type of elements of this space (`LinearSpaceVector`)."""
         return LinearSpaceVector
 
 
 class LinearSpaceVector(object):
-    """Abstract `LinearSpace` element.
+
+    """Abstract class for `LinearSpace` elements.
 
     Do not use this class directly -- to create an element of a vector
     space, call the space's `LinearSpace.element` method instead.
@@ -388,12 +389,9 @@ class LinearSpaceVector(object):
     def __init__(self, space):
         """Initialize a new instance.
 
-        All deriving classes must call this method to set the `space` 
+        All deriving classes must call this method to set the `space`
         property.
         """
-        if not isinstance(space, LinearSpace):
-            raise TypeError('`space` {!r} is not a `LinearSpace` instance'
-                            ''.format(space))
         self._space = space
 
     @property
@@ -422,7 +420,7 @@ class LinearSpaceVector(object):
         x1 : `LinearSpaceVector`
             First vector in the linear combination.
         b : element of ``space.field``, optional
-            Scalar to multiply ``x2`` with. Required if ``x2`` is 
+            Scalar to multiply ``x2`` with. Required if ``x2`` is
             provided.
         x2 : `LinearSpaceVector`, optional
             Second vector in the linear combination.
