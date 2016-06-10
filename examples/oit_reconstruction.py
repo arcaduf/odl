@@ -1,23 +1,32 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri May 20 14:40:01 2016
+# Copyright 2014-2016 The ODL development group
+#
+# This file is part of ODL.
+#
+# ODL is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# ODL is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with ODL.  If not, see <http://www.gnu.org/licenses/>.
 
-@author: chong
+"""
+Example of shape-based image reconstruction
+using optimal information transformation.
 """
 
 # Initial setup
 import numpy as np
-from scipy.interpolate import interp2d
-from scipy.interpolate import RectBivariateSpline
-import numexpr
 import numba
 import matplotlib.pyplot as plt
 import time
-import os
 import ddmatch
 import odl
-import scipy.ndimage as ndimage
-from matplotlib.transforms import Bbox
 
 
 def generate_optimized_density_match_L2_gradient_rec(image):
