@@ -67,7 +67,8 @@ class Functional(Operator):
 
         self._grad_lipschitz = float(grad_lipschitz)
 
-        super().__init__(domain=domain, range=domain.field, linear=linear)
+        #super()
+        Operator.__init__(self, domain=domain, range=domain.field, linear=linear)
 
     @property
     def gradient(self):
@@ -205,6 +206,24 @@ class Functional(Operator):
         else:
             return NotImplemented
 
+
+
+    def __rmul__(self, other):
+
+        if isinstance(other, Operator):
+            return OperatorComp(other, self)
+        elif isinstance(other, Number):
+            return FunctionalLeftScalarMult(self, other)
+        #elif other in self.range:
+        #    return OperatorLeftVectorMult(self, other.copy())
+        elif (isinstance(other, LinearSpaceVector) and
+              other.space.field == self.range):
+            return FunctionalLeftVectorMult(self, other.copy())
+        else:
+            return NotImplemented
+
+
+
     @property
     def is_smooth(self):
         """`True` if this operator is continuously differentiable."""
@@ -225,12 +244,13 @@ class Functional(Operator):
         """Lipschitz constant for the gradient of the functional"""
         return self._grad_lipschitz   
 
-class FunctionalLeftScalarMult(Functional, OperatorLeftScalarMult):
 
+
+class FunctionalLeftScalarMult(Functional, OperatorLeftScalarMult):
 
     """Scalar multiplication a functional."""
 
-    def __init__(self, scalar, func, tmp1=None, tmp2=None):
+    def __init__(self, func, scalar):
 
         """Initialize a new instance.
 
@@ -241,33 +261,38 @@ class FunctionalLeftScalarMult(Functional, OperatorLeftScalarMult):
         func : `Functional`
             The right ("inner") functional
         """
+
         if not isinstance(func, Functional):
             raise TypeError('functional {!r} is not a Functional instance.'
                             ''.format(func))
 
-        OperatorLeftScalarMult.__init__(self, op=func, scalar=scalar)
-
+        scalar=func.range.element(scalar)
+      
+        #Functional.__init__(self, domain=func.domain)        
+        
         if scalar>0:
-            Functional.__init__(self, domain=func.domain, linear=func.linear, smooth=func.smooth, concave=func.concave, convex=func.convex, grad_lipschitz=scalar*func.grad_lipschitz)
+            Functional.__init__(self, domain=func.domain, linear=func.is_linear, smooth=func.is_smooth, concave=func.is_concave, convex=func.is_convex, grad_lipschitz=scalar*func.grad_lipschitz)
         elif scalar==0:
             Functional.__init__(self, domain=func.domain, linear=True, smooth=True, concave=True, convex=True, grad_lipschitz=0)
         else:
-            Functional.__init__(self, domain=func.domain, linear=func.linear, smooth=func.smooth, concave=func.convex, convex=func.concave, grad_lipschitz=-scalar*func.grad_lipschitz)
+            Functional.__init__(self, domain=func.domain, linear=func.is_linear, smooth=func.is_smooth, concave=func.is_convex, convex=func.is_concave, grad_lipschitz=-scalar*func.grad_lipschitz)
+
+
+        OperatorLeftScalarMult.__init__(self, op=func, scalar=scalar)
+
 
         self._func = func
         self._scalar = scalar
                 
         
-    def _call(self, x):
-        return self._scalar*self._func(x)     
+ #   def _call(self, x):
+ #       return self._scalar*self._func(x)     
 
     @property
-    def gradient(self, x, out=None):
-        return self._scalar*self._func.gradient(x)
+    def gradient(self, x):
+        return self._scalar * self._func.gradient(x)
 
-
-
-
+        
 
 
 

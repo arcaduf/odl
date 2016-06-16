@@ -196,7 +196,7 @@ prox22=l22.proximal(1)(phantom)
 l22(phantom)
 cf22=l22.conjugate_functional(phantom)
 
-l1func3=l1func*3
+l1func3=-3*l1func
 
 l1func3(phantom)
 l1func(phantom)
