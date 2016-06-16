@@ -91,7 +91,7 @@ def projector(request):
     if geom == 'par2d':
         # Discrete reconstruction space
         reco_space = odl.uniform_discr([-20] * 2, [20] * 2, [n_voxels] * 2,
-                                       dtype='float32')
+                                       dtype='float64')
 
         # Geometry
         dpart = odl.uniform_partition(-30, 30, n_pixels)

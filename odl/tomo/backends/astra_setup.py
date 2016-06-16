@@ -394,7 +394,7 @@ def astra_projection_geometry(geometry):
     return proj_geom
 
 
-def astra_data(astra_geom, datatype, data=None, ndim=2):
+def astra_data(astra_geom, datatype, data=None, ndim=2, allow_copy=True):
     """Create an ASTRA data structure.
 
     Parameters
@@ -410,6 +410,9 @@ def astra_data(astra_geom, datatype, data=None, ndim=2):
     ndim : {2, 3}, optional
         Dimension of the data. If ``data`` is not `None`, this parameter
         has no effect.
+    allow_copy : `bool`, optional
+        If copying of the data should be allowed. If False, throws a
+        `ValueError` if link is not possible.
 
     Returns
     -------
@@ -428,19 +431,17 @@ def astra_data(astra_geom, datatype, data=None, ndim=2):
         ndim = int(ndim)
 
     if datatype == 'volume':
-        astra_dtype_str = '-vol'
+        astra_datatype_str = '-vol'
     elif datatype == 'projection':
-        astra_dtype_str = '-sino'
+        astra_datatype_str = '-sino'
     else:
         raise ValueError('`datatype` {!r} not understood'.format(datatype))
 
     # Get the functions from the correct module
     if ndim == 2:
-        link = astra.data2d.link
-        create = astra.data2d.create
+        astra_nd = astra.data2d
     elif ndim == 3:
-        link = astra.data3d.link
-        create = astra.data3d.create
+        astra_nd = astra.data3d
     else:
         raise ValueError('{}-dimensional data structures not supported'
                          ''.format(ndim))
@@ -448,16 +449,29 @@ def astra_data(astra_geom, datatype, data=None, ndim=2):
     # ASTRA checks if data is c-contiguous and aligned
     if data is not None:
         if isinstance(data, np.ndarray):
-            return link(astra_dtype_str, astra_geom, data)
+            data_arr = data
         elif isinstance(data.ntuple, FnVector):
-            return link(astra_dtype_str, astra_geom, data.asarray())
+            data_arr = data.asarray()
         else:
             # Something else than NumPy data representation
             raise NotImplementedError('ASTRA supports data wrapping only for '
                                       'numpy.ndarray instances, got {!r}'
                                       ''.format(data))
+
+        if not allow_copy:
+            # If we do not allow a copy, use no intelligence.
+            return astra_nd.link(astra_datatype_str, astra_geom, data_arr)
+        else:
+            if (data_arr.dtype == np.float32 and data_arr.flags['C_CONTIGUOUS']
+                    and data_arr.flags['ALIGNED']):
+                # Try to avoid a copy by linking
+                return astra_nd.link(astra_datatype_str, astra_geom,
+                                     data_arr)
+            else:
+                return astra_nd.create(astra_datatype_str, astra_geom,
+                                       data_arr)
     else:
-        return create(astra_dtype_str, astra_geom)
+        return astra_nd.create(astra_datatype_str, astra_geom)
 
 
 def astra_projector(vol_interp, astra_vol_geom, astra_proj_geom, ndim, impl):

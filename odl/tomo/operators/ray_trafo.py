@@ -87,9 +87,11 @@ class RayTransform(Operator):
                 raise ValueError("'astra' back-end not available")
             if impl == 'astra_cuda' and not ASTRA_CUDA_AVAILABLE:
                 raise ValueError("'astra_cuda' back-end not available")
-            if discr_domain.dspace.dtype not in (np.float32, np.complex64):
-                raise ValueError('ASTRA support is limited to `float32` for '
-                                 'real and `complex64` for complex data')
+            if discr_domain.dspace.dtype not in (np.float32, np.float64,
+                                                 np.complex64):
+                raise ValueError('ASTRA support is limited to `float32` or '
+                                 '`float64` for real and `complex64` for '
+                                 'complex data')
             if not np.allclose(discr_domain.partition.cell_sides[1:],
                                discr_domain.partition.cell_sides[:-1]):
                 raise ValueError('ASTRA does not support different voxel '
@@ -239,9 +241,11 @@ class RayBackProjection(Operator):
                 raise ValueError("'astra' backend not available")
             if impl == 'astra_cuda' and not ASTRA_CUDA_AVAILABLE:
                 raise ValueError("'astra_cuda' backend not available")
-            if discr_range.dspace.dtype not in (np.float32, np.complex64):
-                raise ValueError('ASTRA support is limited to `float32` for '
-                                 'real and `complex64` for complex data')
+            if discr_range.dspace.dtype not in (np.float32, np.float64,
+                                                np.complex64):
+                raise ValueError('ASTRA support is limited to `float32` or '
+                                 '`float64` for real and `complex64` for '
+                                 'complex data')
             if not np.allclose(discr_range.partition.cell_sides[1:],
                                discr_range.partition.cell_sides[:-1]):
                 raise ValueError('ASTRA does not support different voxel '
