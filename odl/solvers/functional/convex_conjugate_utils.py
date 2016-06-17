@@ -15,16 +15,15 @@
 # You should have received a copy of the GNU General Public License
 # along with ODL.  If not, see <http://www.gnu.org/licenses/>.
 
-"""REWRITE!
+"""Utility functions for computing convex conjugate functionals of a functional
+in which
+1) the arguemnt is shifted
+2) the argument is scalled
+3) the functional is scalled
+4) a linear functional is added to it
 
-Factory functions for creating proximal operators.
-
-Functions with ``cconj`` mean the proximal of the convex conjugate and are
-provided for convenience.
-
-For more details see :ref:`proximal_operators` and references therein. For
-more details on proximal operators including how to evaluate the proximal
-operator of a variety of functions see [PB2014]_. """
+For more details on convex conjugate functionals, see for example [Lue1969]_.
+"""
 
 
 # Imports for common Python 2/3 codebase
@@ -45,7 +44,7 @@ def convex_conjugate_translation(convex_conj_f, y):
 
     This is calculated according to the rule
 
-        (F( . - y))^* (x) = F^*(x) - <y, x>
+        (F( . - y))^* (x) = F^*(x) + <y, x>
 
     where ``y`` is the translation of the argument.
 
