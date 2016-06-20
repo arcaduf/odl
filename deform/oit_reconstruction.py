@@ -30,127 +30,36 @@ from odl.operator.operator import Operator
 import odl
 
 
-class DeformationOperator(Operator):
-    """Operator mapping parameter to a fixed deformed template.
+def padded_ft_op(space, padding_size):
+    """Create zero-padding fft setting
 
-    This operator computes for a fixed template ``I`` the deformed
-    template::
-
-        invphi(.) --> I(invphi(.))
-
-    where ``invphi`` is the deformation parameter as follows::
-
-        invphi: x --> invphi(x)
-
-    Here, ``x`` is an element in the domain of target (ground truth).
+    Parameters
+    ----------
+    space : the space needs to do FT
+    padding_size : the percent for zero padding
     """
+    padding_op = odl.ZeroPaddingOperator(
+        space, [padding_size for _ in range(space.ndim)])
+    shifts = [not s % 2 for s in space.shape]
+    ft_op = odl.trafos.FourierTransform(
+        padding_op.range, halfcomplex=False, shift=shifts)
 
-    def __init__(self, template):
-        """Initialize a new instance.
+    return ft_op * padding_op
 
-        Parameters
-        ----------
-        template : `DiscreteLpVector`
-            Fixed template deformed by the vector field. Its space
-            must have the same number of dimensions as ``par_space``.
-        """
-        # The operator maps from the parameter space to the template
-        # (image) space.
-        self.template = template
 
-        # Create the space for the general inverse deformation
-        self.domain_space = odl.ProductSpace(self.template.space,
-                                             self.template.space.ndim)
+def kernel_ft(kernel):
+    """Compute the n-D Fourier transform of the discrete kernel ``K``.
 
-        super().__init__(self.domain_space, self.template.space, linear=False)
+    Calculate the n-D Fourier transform of the discrete kernel ``K`` on the
+    image grid points {y_i} to its reciprocal points {xi_i}.
 
-    def _call(self, invdeformation):
-        """Implementation of ``self(invdeformation)``.
+    """
+    kspace = odl.ProductSpace(discr_space, discr_space.ndim)
 
-        Parameters
-        ----------
-        invdeformation: `ProductSpaceVector`
-            General inverse deformation for image grid points.
-        """
-        for i in xrange(s):
-            for j in xrange(s):
-                xind = int(xphi[i, j])
-                yind = int(yphi[i, j])
-                xindp1 = xind+1
-                yindp1 = yind+1
-                deltax = xphi[i, j]-float(xind)
-                deltay = yphi[i, j]-float(yind)
-
-                # Id xdelta is negative it means that xphi is negative, so xind
-                # is larger than xphi. We then reduce xind and xindp1 by 1 and
-                # after that impose the periodic boundary conditions.
-                if (deltax < 0 or xind < 0):
-                    deltax += 1.0
-                    xind -= 1
-                    xind %= s
-                    xindp1 -= 1
-                    xindp1 %= s
-                elif (xind >= s):
-                    xind %= s
-                    xindp1 %= s
-                elif (xindp1 >= s):
-                    xindp1 %= s
-
-                if (deltay < 0 or xind < 0):
-                    deltay += 1.0
-                    yind -= 1
-                    yind %= s
-                    yindp1 -= 1
-                    yindp1 %= s
-                elif (yind >= s):
-                    yind %= s
-                    yindp1 %= s
-                elif (yindp1 >= s):
-                    yindp1 %= s
-
-                onemdeltax = 1.-deltax
-                onemdeltay = 1.-deltay
-                Iout[i, j] = I[yind, xind]*onemdeltax*onemdeltay + \
-                    I[yind, xindp1]*deltax*onemdeltay + \
-                    I[yindp1, xind]*deltay*onemdeltax + \
-                    I[yindp1, xindp1]*deltay*deltax
-
-        image_pts = self.template.space.grid.points()
-        image_pts += np.asarray(displacement).T
-
-        return self.template.interpolation(image_pts.T, bounds_check=False)
-
-    def linear_deform(self, template, displacement):
-        """Implementation of ``self(template, displacement)``.
-
-        Parameters
-        ----------
-        template : `DiscreteLpVector`
-            Fixed template deformed by the vector field. Its space
-            must have the same number of dimensions as ``par_space``.
-        displacement: `ProductSpaceVector`
-            Linearized deformation parameters for image grid points.
-        """
-        image_pts = template.space.grid.points()
-        image_pts += np.asarray(displacement).T
-        return template.interpolation(image_pts.T, bounds_check=False)
-
-    def derivative(self, displacement):
-        """Frechet derivative of this operator in ``disp``.
-
-        Parameters
-        ----------
-        displacement: `ProductSpaceVector`
-            Linearized deformation parameters for image grid points.
-
-        Returns
-        -------
-        deriv : `Operator`
-        The derivative of this operator, evaluated at ``displacement``
-        """
-        deriv_op = LinearizedDeformationDerivative(self.template,
-                                                   displacement)
-        return deriv_op
+    # Create the array of kernel values on the grid points
+    discretized_kernel = kspace.element(
+        [discr_space.element(kernel) for _ in range(discr_space.ndim)])
+    return vectorial_ft_op(discretized_kernel)
 
 
 def generate_optimized_density_match_L2_gradient_rec(image):
@@ -212,7 +121,13 @@ def SNR(signal, noise):
 
         return 10.0 * np.log10(en1/en2)
     else:
-        return 10000.
+        return float('inf')
+
+
+# Kernel function
+def kernel(x):
+    scaled = [xi ** 2 / (2 * sigma_kernel ** 2) for xi in x]
+    return np.exp(-sum(scaled))
 
 
 I0name = '../ddmatch/Example3 letters/c_highres.png'
@@ -240,6 +155,17 @@ discr_space = odl.uniform_discr([-16, -16],
                                 [16, 16], [128, 128],
                                 dtype='float32', interp='linear')
 
+
+# Create discretization space for vector field
+vspace = odl.ProductSpace(discr_space, discr_space.ndim)
+
+# FFT setting for regularization shape term, 1 means 100% padding
+padding_size = 1.0
+padded_ft_op = padded_ft_op(discr_space, padding_size)
+vectorial_ft_op = odl.DiagonalOperator(
+    *([padded_ft_op] * discr_space.ndim))
+
+
 # Create the ground truth as the given image
 ground_truth = discr_space.element(I0.T)
 
@@ -250,7 +176,7 @@ template = discr_space.element(I1.T)
 template_mass_pre = template
 
 # Give the number of directions
-num_angles = 6
+num_angles = 20
 
 # Create the uniformly distributed directions
 angle_partition = odl.uniform_partition(
@@ -270,10 +196,12 @@ xray_trafo_op = odl.tomo.RayTransform(discr_space, geometry, impl='astra_cuda')
 proj_data = xray_trafo_op(ground_truth)
 
 # Create white Gaussian noise
-noise = 5.0 * proj_data.space.element(proj_noise(proj_data.shape))
+noise = 20.0 * proj_data.space.element(proj_noise(proj_data.shape))
+
+snr = SNR(proj_data, noise)
 
 # Output the signal-to-noise ratio
-print('snr = {!r}'.format(SNR(proj_data, noise)))
+print('snr = {!r}'.format(snr))
 
 # Create noisy projection data
 noise_proj_data = proj_data + noise
@@ -284,14 +212,17 @@ backproj = xray_trafo_op.adjoint(noise_proj_data)
 density_match_L2_gradient_rec = \
     generate_optimized_density_match_L2_gradient_rec(I1)
 
+# kernel parameter
+sigma_kernel = 3.0
+
 # Regularization parameter, should be nonnegtive
 sigma = 1000e-1
 
 # Step size for the gradient descent method
-epsilon = 0.005
+epsilon = 0.05
 
 # Maximum iteration number
-n_iter = 500
+n_iter = 1000
 
 dm = ddmatch.TwoComponentDensityMatching(source=I1, target=I0, sigma=sigma)
 
@@ -320,6 +251,9 @@ tmp = list(id_map)
 tmpx = dm.idx.copy()
 tmpy = dm.idy.copy()
 
+# Compute Fourier trasform of the kernel function in data matching term
+ft_kernel = kernel_ft(kernel)
+
 # Test time, set starting time
 start = time.clock()
 
@@ -334,6 +268,8 @@ for k in xrange(n_iter):
                                          dtype='float64')
     dm.image_compose(template_array, dm.phiinvx,
                      dm.phiinvy, template_mass_pre_array)
+
+    print(template_mass_pre_array.sum())
 
     template_mass_pre_array *= dm.J
     W = template_mass_pre_array
@@ -354,17 +290,25 @@ for k in xrange(n_iter):
     dm.image_gradient(dm.sqrtJ, dm.dsqrtJdx, dm.dsqrtJdy)
 
     # Compute the L2 gradient of the energy functional
+
     density_match_L2_gradient_rec(sigma, dm.dsqrtJdx, dm.dsqrtJdy,
                                   dm.dtmpdx, dm.dtmpdy,
                                   vx, vy)
 
-    # STEP 3:
-    fftx = np.fft.fftn(vx)
-    ffty = np.fft.fftn(vy)
-    fftx *= dm.Linv
-    ffty *= dm.Linv
-    vx[:] = -np.fft.ifftn(fftx).real
-    vy[:] = -np.fft.ifftn(ffty).real
+#    #STEP 3: Solve the Poisson equation
+#    fftx = np.fft.fftn(vx)
+#    ffty = np.fft.fftn(vy)
+#    fftx *= dm.Linv
+#    ffty *= dm.Linv
+#    vx[:] = -np.fft.ifftn(fftx).real
+#    vy[:] = -np.fft.ifftn(ffty).real
+
+    # SETP 3: instead by the metric in reproducing kernel Hilbert space
+    vec_field = vspace.element([vx, vy])
+    ft_vec_field = vectorial_ft_op(vec_field)
+    vec_field_rkhs = vectorial_ft_op.inverse(ft_kernel * ft_vec_field)
+    vx[:] = -vec_field_rkhs[0]
+    vy[:] = -vec_field_rkhs[1]
 
     # STEP 4 (v = -grad E, so to compute the inverse
     # we solve \psiinv' = -epsilon*v o \psiinv)
@@ -420,7 +364,7 @@ backproj = np.asarray(backproj)
 backproj = backproj.T
 
 dm.template_mass_pre = discr_space.element(dm.W.T)
-rec_proj_data = xray_trafo_op(dm.template_mass_pre)
+rec_proj_data = xray_trafo_op(template_mass_pre)
 
 plt.figure(1, figsize=(28, 28))
 plt.clf()
@@ -476,7 +420,7 @@ plt.gca().set_aspect('equal')
 plt.title('Warp')
 
 plt.subplot(3, 3, 7)
-plt.title('stepsize = {!r}, $\sigma$ = {!r}'.format(epsilon, sigma))
+plt.title('stepsize = {!r}, $\sigma$ = {!r}, $K_p$ = {!r}'.format(epsilon, sigma, sigma_kernel))
 plt.plot(E)
 plt.ylabel('Energy')
 # plt.gca().axes.yaxis.set_ticklabels(['0']+['']*8)
@@ -485,7 +429,7 @@ plt.grid(True)
 
 plt.subplot(3, 3, 8)
 plt.plot(np.asarray(proj_data)[0], 'b', np.asarray(noise_proj_data)[0], 'r')
-plt.title('Theta=0, blue: truth_data, red: noisy_data, SNR = 9.17dB')
+plt.title('Theta=0, blue: truth_data, red: noisy_data, SNR = {:.3}'.format(snr))
 plt.gca().axes.yaxis.set_ticklabels([])
 plt.axis([0, 191, -17, 32])
 
