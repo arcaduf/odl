@@ -454,9 +454,12 @@ class DisplacementDerivativeAdjoint(DisplacementDerivative):
         """
 
         super().__init__(alphas, control_points, discr_space, ft_kernel)
+        self.discr_space = discr_space
+        self.domain_space = odl.ProductSpace(self.discr_space,
+                                             self.discr_space.ndim)
 
         # Switch domain and range
-        self._domain, self._range = self._range, self._domain
+        Operator.__init__(self, self.domain_space, alphas.space, linear=True)
 
     def _call(self, grad_func):
         """Implement ``self(func)```.
@@ -577,9 +580,6 @@ class LinearizedDeformationDerivative(LinearizedDeformationOperator):
         Operator.__init__(self, self.displacement.space, self.template.space,
                           linear=True)
 
-    def derivative(self, *args, **kwargs):
-        raise NotImplementedError
-
     def _deform_grad(self, grad_f):
         """Compute the deformation of template's gradient.
 
@@ -640,8 +640,11 @@ class LinearizedDeformationDerivativeAdjoint(LinearizedDeformationDerivative):
         """
         super().__init__(template, displacement)
 
-        # Switch domain and range
-        self._domain, self._range = self._range, self._domain
+        self.template = template
+        self.displacement = displacement
+
+        Operator.__init__(self, self.template.space, self.displacement.space,
+                          linear=True)
 
     def _call(self, func):
         """Implement ``self(func)```.
