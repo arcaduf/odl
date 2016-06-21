@@ -1,25 +1,25 @@
 package:
     name: odl
-    version: "0.2.3"
+    version: "0.2.4"
 
 source:
-    fn: odl-0.2.3.tar.gz
-    url: https://pypi.python.org/packages/c2/23/b208c56d0c25ec647cab9f164f050205c4792f5129deaf6b7a9cd3b99b1c/odl-0.2.3.tar.gz
-    md5: c8008ecf717b2b97ed72f8163e2ec805
-    # git_url: https://github.com/odlgroup/odl
-    # git_rev: v0.2.3
+    # fn: odl-0.2.3.tar.gz
+    # url: https://pypi.python.org/packages/c2/23/b208c56d0c25ec647cab9f164f050205c4792f5129deaf6b7a9cd3b99b1c/odl-0.2.3.tar.gz
+    # md5: c8008ecf717b2b97ed72f8163e2ec805
+    git_url: https://github.com/odlgroup/odl.git
+    git_tag: ff380bef3a105b0bf5b2ed28b8f862adc3c42185
 
 requirements:
     build:
-        - python 2.7|>=3.4
+        - python
         - nomkl
         - setuptools
         - future >=0.14
         - numpy >=1.9
         - scipy >=0.14
     run:
+        - python
         - nomkl
-        - python 2.7|>=3.4
         - future >=0.14
         - numpy >=1.9
         - scipy >=0.14
@@ -30,7 +30,7 @@ test:
     
     requires:
         - pytest
-    
+
 about:
     home: https://github.com/odlgroup/odl
     license: GPLv3+
