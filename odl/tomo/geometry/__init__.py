@@ -40,5 +40,9 @@ from . import conebeam
 from .conebeam import *
 __all__ += conebeam.__all__
 
+from . import flexible
+from .flexible import *
+__all__ += flexible.__all__
+
 from .spect import *
 __all__ += spect.__all__

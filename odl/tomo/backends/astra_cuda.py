@@ -35,7 +35,7 @@ from odl.tomo.backends.astra_setup import (
     astra_data, astra_algorithm)
 from odl.tomo.geometry import (
     Geometry, Parallel2dGeometry, FanFlatGeometry, Parallel3dAxisGeometry,
-    HelicalConeFlatGeometry)
+    HelicalConeFlatGeometry, FlexibleDivergentBeamGeometry)
 
 
 __all__ = ('astra_cuda_forward_projector', 'astra_cuda_back_projector',
@@ -245,6 +245,22 @@ def astra_cuda_back_projector(proj_data, geometry, reco_space, out=None):
         src_radius = geometry.src_radius
         det_radius = geometry.det_radius
         scaling_factor *= ((src_radius + det_radius) / src_radius) ** 2
+    elif isinstance(geometry, FlexibleDivergentBeamGeometry):
+        print(scaling_factor)
+        extent = reco_space.partition.extent()
+        shape = np.array(reco_space.shape, dtype=float)
+        scaling_factor /= float(extent[0] / shape[0])
+
+        domain_scale = np.prod(extent / shape)
+
+        src = geometry.src_position(0)
+        det = geometry.det_refpoint(0)
+        src_to_det = det - src
+
+        scaling_factor *= src_to_det.inner(src_to_det) / src_to_det.inner()
+    else:
+        raise TypeError('`geometry {!r} not supported'.format(geometry))
+
     out *= scaling_factor
 
     # Delete ASTRA objects
