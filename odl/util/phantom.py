@@ -27,8 +27,8 @@ import numpy as np
 
 __all__ = ('ellipse_phantom_2d', 'ellipse_phantom_3d',
            'cuboid', 'indicate_proj_axis',
-           'derenzo_sources', 'shepp_logan', 'submarine_phantom', 'disc_phantom', 
-           'white_noise')
+           'derenzo_sources', 'shepp_logan', 'submarine_phantom',
+           'disc_phantom', 'white_noise')
 
 
 def _shepp_logan_ellipse_2d():
@@ -538,8 +538,8 @@ def _submarine_phantom_2d_nonsmooth(discr):
     out = discr.element(ellipse)
     out += discr.element(rect)
     return out.ufunc.minimum(1, out=out)
-    
-    
+
+
 def disc_phantom(discr, smooth=True, taper=20.0):
     """Return a 'disc' phantom consisting in an disc.
 
@@ -571,7 +571,7 @@ def disc_phantom(discr, smooth=True, taper=20.0):
 
 
 def _disc_phantom_2d_smooth(discr, taper):
-    """Return a 2d smooth 'submarine' phantom."""
+    """Return a 2d smooth 'disc' phantom."""
 
     def logistic(x, c):
         """Smoothed step function from 0 to 1, centered at 0."""
@@ -582,7 +582,7 @@ def _disc_phantom_2d_smooth(discr, taper):
 
         If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1]``,
         the ellipse is centered at ``(0.0, 0.0)`` and has half-axes
-        ``(0.5, 0.5)``. For other domains, the values are scaled
+        ``(0.25, 0.25)``. For other domains, the values are scaled
         accordingly.
         """
         halfaxes = np.array([0.25, 0.25]) * discr.domain.extent() / 2
@@ -603,14 +603,14 @@ def _disc_phantom_2d_smooth(discr, taper):
 
 
 def _disc_phantom_2d_nonsmooth(discr):
-    """Return a 2d nonsmooth 'submarine' phantom."""
+    """Return a 2d nonsmooth 'disc' phantom."""
 
     def ellipse(x):
         """Characteristic function of an ellipse.
 
         If ``discr.domain`` is a rectangle ``[-1, 1] x [-1, 1]``,
-        the ellipse is centered at ``(0.2, -0.4)`` and has half-axes
-        ``(0.8, 0.28)``. For other domains, the values are scaled
+        the ellipse is centered at ``(0.0, 0.0)`` and has half-axes
+        ``(0.25, 0.25)``. For other domains, the values are scaled
         accordingly.
         """
         halfaxes = np.array([0.25, 0.25]) * discr.domain.extent() / 2
@@ -623,7 +623,7 @@ def _disc_phantom_2d_nonsmooth(discr):
         return np.where(sq_ndist <= 1, 1, 0)
 
     out = discr.element(ellipse)
-    return out.ufunc.minimum(1, out=out)    
+    return out.ufunc.minimum(1, out=out)
 
 
 def cuboid(discr_space, begin, end):
@@ -788,11 +788,11 @@ if __name__ == '__main__':
     submarine_phantom(discr, smooth=False).show()
     submarine_phantom(discr, smooth=True).show()
     submarine_phantom(discr, smooth=True, taper=50).show()
-    
+
     disc_phantom(discr, smooth=False).show()
     disc_phantom(discr, smooth=True).show()
     disc_phantom(discr, smooth=True, taper=50).show()
-    
+
     # Shepp-logan 3d
     discr = odl.uniform_discr([-1, -1, -1], [1, 1, 1], [n, n, n])
     with odl.util.Timer():
