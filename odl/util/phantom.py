@@ -550,6 +550,7 @@ def disc_phantom(discr, smooth=True, taper=20.0):
     smooth : `bool`, optional
         If `True`, the boundaries are smoothed out. Otherwise, the
         function steps from 0 to 1 at the boundaries.
+        If `False`, the boundaries are sharp.
     taper : `float`, optional
         Tapering parameter for the boundary smoothing. Larger values
         mean faster taper, i.e. sharper boundaries.
@@ -591,11 +592,10 @@ def _disc_phantom_2d_smooth(discr, taper):
 
         out = np.sqrt(sq_ndist)
         out -= 1
-        # Return logistic(taper * (1 - |z|))
         return logistic(out, -taper)
 
     out = discr.element(blurred_ellipse)
-    return out.ufunc.minimum(1, out=out)
+    return out.ufunc.minimum(1.0, out=out)
 
 
 def _disc_phantom_2d_nonsmooth(discr):
@@ -618,7 +618,7 @@ def _disc_phantom_2d_nonsmooth(discr):
         return np.where(sq_ndist <= 1, 1, 0)
 
     out = discr.element(ellipse)
-    return out.ufunc.minimum(1, out=out)
+    return out.ufunc.minimum(1.0, out=out)
 
 
 def cuboid(discr_space, begin, end):
@@ -783,6 +783,10 @@ if __name__ == '__main__':
     submarine_phantom(discr, smooth=False).show()
     submarine_phantom(discr, smooth=True).show()
     submarine_phantom(discr, smooth=True, taper=50).show()
+
+    disc_phantom(discr, smooth=False).show()
+    disc_phantom(discr, smooth=True).show()
+    disc_phantom(discr, smooth=True, taper=50).show()
 
     # Shepp-logan 3d
     discr = odl.uniform_discr([-1, -1, -1], [1, 1, 1], [n, n, n])
