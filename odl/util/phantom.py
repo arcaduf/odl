@@ -421,8 +421,6 @@ def shepp_logan(space, modified=False):
 def submarine_phantom(discr, smooth=True, taper=20.0):
     """Return a 'submarine' phantom consisting in an ellipsoid and a box.
 
-    This phantom is used in [Okt2015]_ for shape-based reconstruction.
-
     Parameters
     ----------
     discr : `DiscreteLp`
@@ -542,7 +540,7 @@ def _submarine_phantom_2d_nonsmooth(discr):
 
 def disc_phantom(discr, smooth=True, taper=20.0):
     """Return a 'disc' phantom consisting in an disc.
-    This phantom is used in [Okt2015]_ for shape-based reconstruction.
+
     Parameters
     ----------
     discr : `DiscreteLp`
@@ -554,6 +552,7 @@ def disc_phantom(discr, smooth=True, taper=20.0):
     taper : `float`, optional
         Tapering parameter for the boundary smoothing. Larger values
         mean faster taper, i.e. sharper boundaries.
+
     Returns
     -------
     phantom : `DiscreteLpVector`
@@ -783,7 +782,6 @@ if __name__ == '__main__':
     submarine_phantom(discr, smooth=False).show()
     submarine_phantom(discr, smooth=True).show()
     submarine_phantom(discr, smooth=True, taper=50).show()
-
     disc_phantom(discr, smooth=False).show()
     disc_phantom(discr, smooth=True).show()
     disc_phantom(discr, smooth=True, taper=50).show()
