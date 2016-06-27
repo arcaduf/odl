@@ -27,6 +27,8 @@ from future import standard_library
 standard_library.install_aliases()
 from builtins import super
 
+import numba as nb
+from numba import cuda
 import numpy as np
 import scipy as sp
 
@@ -886,7 +888,22 @@ def proximal_convexconjugate_kl(space, lam=1, g=None):
     return _ProximalConvConjKL
 
 
-def proximal_variable_lp(space, exponent, lam=1.0, g=None):
+def _newton_iter_pw(f, sigma, p, niter):
+    x = f / (sigma * p * (2 - p))
+    if x <= 1:
+        x = x ** (1 / (p - 1)) / 2
+    else:
+        x = 0.5
+
+    for i in range(niter):
+        numer = p * (p - 2) * sigma * x ** (p - 1) + f
+        denom = 1 + p * (p - 1) * sigma * x ** (p - 2)
+        x = numer / denom
+
+    return x
+
+
+def proximal_variable_lp(space, exponent, lam=1.0, g=None, impl='numpy'):
     """Return the proximal operator of the variable Lebesgue modular.
 
     Parameters
@@ -899,6 +916,8 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
         Scaling factor or regularization parameter
     g : ``space`` element-like
         An element in ``space``
+    impl : {'numpy', 'numba_cpu', 'numba_cuda'}
+        Implementational back-end for the proximal operator.
 
     Notes
     -----
@@ -914,6 +933,9 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
     specified, such that instead of :math:`f`, the difference
     :math:`f - g` is considered.
     """
+    impl, impl_in = str(impl).lower(), impl
+    if impl not in ('numpy', 'numba_cpu', 'numba_cuda'):
+        raise ValueError("`impl` '{}' not understood".format(impl_in))
 
     class VarLpModularProx(Operator):
 
@@ -970,9 +992,11 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
             else:
                 self.g = None
 
-        def _newton_iter(self, it, val, sigma, p, pm1, pm2, niter=5,
-                         start_relax=0.5, tmp=None):
-            """Helper method for the inner Newton iteration."""
+            self.impl = impl
+
+        def _newton_iter_npy(self, it, val, sigma, p, pm1, pm2, niter,
+                             tmp=None):
+            """Helper method for the inner Newton iteration, NumPy version."""
             # Start value which guarantees convergence.
             np.divide(val, p, out=it)
             it /= pm2
@@ -984,7 +1008,7 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
             small_enough = (it <= 1)
             it[small_enough] **= 1.0 / pm1[small_enough]
             it[~small_enough] = 1.0
-            it *= start_relax
+            it *= 0.5
 
             # The iteration itself
             for i in range(niter):
@@ -995,7 +1019,7 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
                 tmp *= sigma
                 tmp += 1.0
 
-                # Nominator p*(p-2)*sigma*q**(p-1) + val
+                # Numerator p*(p-2)*sigma*q**(p-1) + val
                 np.power(it, pm1, out=it)
                 it *= p
                 it *= pm2
@@ -1014,20 +1038,58 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
             out : range element
                 Element to which the result is written
             max_newton_iter : `int`, optional
-                Maximum number of Newton iterations
+                Maximum number of Newton iterations.
+                Default: 5
             """
+            max_newton_iter = int(kwargs.pop('max_newton_iter', 5))
             if isinstance(self.domain, ProductSpace):
-                self._call_pspace(f, out, **kwargs)
+                self._call_pspace(f, out, max_newton_iter=max_newton_iter)
             else:
-                self._call_scalar(f, out, **kwargs)
+                self._call_scalar(f, out, max_newton_iter=max_newton_iter)
 
-        def _call_scalar(self, f, out, **kwargs):
-            """Implement ``self(x, out, **kwargs)`` for scalar domain."""
+        def _call_scalar(self, f, out, max_newton_iter):
+            """Evaluation method for the scalar case."""
             if self.g is not None:
                 f = f - self.g
 
             step = self.sigma * float(lam)
 
+            if self.impl == 'numpy':
+                self._call_scalar_npy(f, out, step, max_newton_iter)
+            elif self.impl.startswith('numba'):
+                target = self.impl.split('_')[1]
+                dt = nb.numpy_support.FROM_DTYPE[np.dtype(f.dtype)]
+                nb_int = nb.numpy_support.FROM_DTYPE[np.dtype(int)]
+
+                @nb.vectorize([dt(dt, dt, dt, nb_int)], target=target)
+                def _varlp_prox_pw(f, sigma, p, max_newton_iter):
+                    if f <= 1e-6:
+                        return 0.0
+                    elif p >= 1.95:
+                        return f / (1.0 + 2.0 * sigma)
+                    elif p <= 1.05:
+                        return max(1.0 - sigma / abs(f), 0.0) * f
+                    else:
+                        v = abs(f)
+                        x = v / (sigma * p * (2 - p))
+                        if x <= 1:
+                            x = x ** (1 / (p - 1)) / 2
+                        else:
+                            x = 0.5
+
+                        for i in range(max_newton_iter):
+                            numer = p * (p - 2) * sigma * x ** (p - 1) + v
+                            denom = 1 + p * (p - 1) * sigma * x ** (p - 2)
+                            x = numer / denom
+
+                        return x if f >= 0 else -x
+
+                out[:] = _varlp_prox_pw(f.asarray(), step,
+                                        self.exponent.asarray(),
+                                        max_newton_iter)
+
+        def _call_scalar_npy(self, f, out, step, max_newton_iter):
+            """Evaluation, scalar case, Numpy implementation."""
             exp_arr = self.exponent.asarray()
             out_arr = out.asarray()
             f_arr = f.asarray()
@@ -1055,9 +1117,8 @@ def proximal_variable_lp(space, exponent, lam=1.0, g=None):
             val = f_arr[current]
             tmp = np.empty_like(it)
 
-            maxiter = int(kwargs.pop('max_newton_iter', 5))
-            self._newton_iter(it, np.abs(val), step, exp_p, exp_m1, exp_m2,
-                              niter=maxiter, tmp=tmp)
+            self._newton_iter_npy(it, np.abs(val), step, exp_p, exp_m1, exp_m2,
+                                  niter=max_newton_iter, tmp=tmp)
 
             out_arr[current] = it
             out_arr[current] *= np.sign(val)
