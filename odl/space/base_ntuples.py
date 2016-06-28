@@ -165,7 +165,7 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
 
     def __init__(self, space, *args, **kwargs):
         """Initialize a new instance."""
-        self._space = space
+        self.__space = space
 
     @abstractmethod
     def copy(self):
@@ -240,7 +240,7 @@ class NtuplesBaseVector(with_metaclass(ABCMeta, object)):
     @property
     def space(self):
         """Space to which this vector."""
-        return self._space
+        return self.__space
 
     @property
     def ndim(self):

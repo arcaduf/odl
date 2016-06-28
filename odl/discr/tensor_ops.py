@@ -107,12 +107,12 @@ class PointwiseTensorFieldOperator(Operator):
                              ''.format(dom_base, ran_base))
 
         super().__init__(domain=domain, range=range, linear=linear)
-        self._base_space = dom_base
+        self.__base_space = dom_base
 
     @property
     def base_space(self):
         """The base space ``X`` of this operator's domain and range."""
-        return self._base_space
+        return self.__base_space
 
 
 class PointwiseNorm(PointwiseTensorFieldOperator):

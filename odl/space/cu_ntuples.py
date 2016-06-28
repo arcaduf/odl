@@ -212,10 +212,10 @@ class CudaNtuplesVector(NtuplesBaseVector, LinearSpaceVector):
 
         super().__init__(space)
 
-        if not isinstance(data, self._space._vector_impl):
+        if not isinstance(data, self.space._vector_impl):
             raise TypeError('`data` {!r} not a `{}` instance'
-                            ''.format(data, self._space._vector_impl))
-        self._data = data
+                            ''.format(data, self.space._vector_impl))
+        self.__data = data
 
     @property
     def data(self):
@@ -233,7 +233,7 @@ class CudaNtuplesVector(NtuplesBaseVector, LinearSpaceVector):
         Examples
         --------
         """
-        return self._data
+        return self.__data
 
     @property
     def data_ptr(self):

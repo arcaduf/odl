@@ -113,15 +113,15 @@ class DiscreteLp(DiscretizedSpace):
             if interp not in _SUPPORTED_INTERP:
                 raise ValueError("`interp` type '{}' not understood"
                                  "".format(interp_in))
-            self._interp = [interp] * partition.ndim
+            self.__interp = [interp] * partition.ndim
         except TypeError:
             # Got sequence of strings
             if len(interp) != partition.ndim:
                 raise ValueError('expected {} (ndim) entries in interp, '
                                  'got {}'.format(partition.ndim, len(interp)))
 
-            self._interp = [str(s).lower() for s in interp]
-            if any(s not in _SUPPORTED_INTERP for s in self._interp):
+            self.__interp = [str(s).lower() for s in interp]
+            if any(s not in _SUPPORTED_INTERP for s in self.interp):
                 raise ValueError('interp sequence {} contains illegal '
                                  'values'.format(interp))
 
@@ -129,9 +129,9 @@ class DiscreteLp(DiscretizedSpace):
         if str(order).upper() not in ('C', 'F'):
             raise ValueError('`order` {!r} not recognized'.format(order))
         else:
-            self._order = str(order).upper()
+            self.__order = str(order).upper()
 
-        self._partition = partition
+        self.__partition = partition
         sampling = PointCollocation(fspace, self.partition, dspace,
                                     order=self.order)
         if all(s == 'nearest' for s in self.interp):
@@ -145,7 +145,7 @@ class DiscreteLp(DiscretizedSpace):
                 fspace, self.partition, dspace, self.interp, order=self.order)
 
         DiscretizedSpace.__init__(self, fspace, dspace, sampling, interpol)
-        self._exponent = float(exponent)
+        self.__exponent = float(exponent)
         if (hasattr(self.dspace, 'exponent') and
                 self.exponent != dspace.exponent):
             raise ValueError('`exponent` {} not equal to data space exponent '
@@ -164,12 +164,12 @@ class DiscreteLp(DiscretizedSpace):
     @property
     def order(self):
         """Axis ordering for array flattening."""
-        return self._order
+        return self.__order
 
     @property
     def partition(self):
         """The `RectPartition` of the domain."""
-        return self._partition
+        return self.__partition
 
     @property
     def is_uniform(self):
@@ -218,7 +218,12 @@ class DiscreteLp(DiscretizedSpace):
     @property
     def exponent(self):
         """The exponent ``p`` in ``L^p``."""
-        return self._exponent
+        return self.__exponent
+
+    @property
+    def interp(self):
+        """Interpolation type of this discretization."""
+        return self.__interp
 
     def element(self, inp=None, **kwargs):
         """Create an element from ``inp`` or from scratch.
@@ -311,11 +316,6 @@ class DiscreteLp(DiscretizedSpace):
                     arr = arr + np.zeros(shape, dtype=arr.dtype)
             arr = arr.ravel(order=self.order)
             return self.element_type(self, self.dspace.element(arr))
-
-    @property
-    def interp(self):
-        """Interpolation type of this discretization."""
-        return self._interp
 
     def _astype(self, dtype):
         """Internal helper for ``astype``."""
