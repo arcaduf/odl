@@ -51,7 +51,7 @@ class LinearSpace(Set):
         field : `Field`
             The underlying scalar field of the space
         """
-        self._field = field
+        self.__field = field
 
     @property
     def field(self):
@@ -65,7 +65,7 @@ class LinearSpace(Set):
         field : `Field`
             The underlying field.
         """
-        return self._field
+        return self.__field
 
     @abstractmethod
     def element(self, inp=None, **kwargs):

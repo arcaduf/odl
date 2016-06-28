@@ -114,7 +114,7 @@ class CudaNtuples(NtuplesBase):
 
         super().__init__(size, dtype)
 
-        self._vector_impl = _TYPE_MAP_NPY2CUDA[self._dtype]
+        self._vector_impl = _TYPE_MAP_NPY2CUDA[self.dtype]
 
     def element(self, inp=None, data_ptr=None):
         """Create a new element.
