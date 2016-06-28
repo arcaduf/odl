@@ -26,22 +26,20 @@ from . import base_tensors
 
 from . import weighting
 
-from . import ntuples
+from .npy_tensors import *
+__all__ += npy_tensors.__all__
+
 from .ntuples import *
 __all__ += ntuples.__all__
 
-from . import cu_ntuples
 from .cu_ntuples import *
 __all__ += cu_ntuples.__all__
 
-from . import pspace
 from .pspace import *
 __all__ += pspace.__all__
 
-from . import fspace
 from .fspace import *
 __all__ += fspace.__all__
 
-from . import space_utils
 from .space_utils import *
 __all__ += space_utils.__all__
