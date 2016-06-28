@@ -24,17 +24,21 @@ standard_library.install_aliases()
 
 import numpy as np
 
-from odl.set.sets import Set
+from odl.set.sets import Set, RealNumbers, ComplexNumbers
+from odl.set.space import LinearSpace, LinearSpaceVector
+from odl.space.base_ntuples import _TYPE_MAP_R2C, _TYPE_MAP_C2R
 from odl.util.ufuncs import NtuplesUFuncs
-from odl.util.utility import arraynd_repr, dtype_repr
+from odl.util.utility import (
+    arraynd_repr, dtype_repr, is_scalar_dtype, is_floating_dtype,
+    is_real_dtype, is_complex_floating_dtype)
 
 
-__all__ = ('TensorSpaceBase', 'BaseTensor')
+__all__ = ('TensorSetBase', 'PreBaseTensor', 'TensorSpaceBase', 'BaseTensor')
 
 
-class TensorSpaceBase(Set):
+class TensorSetBase(Set):
 
-    """Base class for tensors of arbitrary type."""
+    """Base class for sets of tensors of arbitrary type."""
 
     def __init__(self, shape, dtype, order):
         """Initialize a new instance.
@@ -106,11 +110,11 @@ class TensorSpaceBase(Set):
         >>> mat_space = NumpyTensors([2, 3], dtype='float32')
         >>> long_3 = Ntuples(3, dtype='int64')
         >>> long_3.element() in long_3
-        True
+
         >>> long_3.element() in Ntuples(3, dtype='int32')
-        False
+
         >>> long_3.element() in Ntuples(3, dtype='float64')
-        False
+
         """
         return getattr(other, 'space', None) == self
 
@@ -130,22 +134,22 @@ class TensorSpaceBase(Set):
         >>> from odl import Ntuples
         >>> int_3 = Ntuples(3, dtype=int)
         >>> int_3 == int_3
-        True
+
 
         Equality is not identity:
 
         >>> int_3a, int_3b = Ntuples(3, int), Ntuples(3, int)
         >>> int_3a == int_3b
-        True
+
         >>> int_3a is int_3b
-        False
+
 
         >>> int_3, int_4 = Ntuples(3, int), Ntuples(4, int)
         >>> int_3 == int_4
-        False
+
         >>> int_3, str_3 = Ntuples(3, 'int'), Ntuples(3, 'S2')
         >>> int_3 == str_3
-        False
+
         """
         if other is self:
             return True
@@ -163,13 +167,13 @@ class TensorSpaceBase(Set):
 
     @property
     def element_type(self):
-        """Type of elements of this space."""
-        return BaseTensor
+        """Type of elements in this set: `PreBaseTensor`."""
+        return PreBaseTensor
 
 
-class BaseTensor(object):
+class PreBaseTensor(object):
 
-    """Abstract class for representation of `TensorSpaceBase` elements.
+    """Abstract class for representation of `TensorSetBase` elements.
 
     Defines abstract and concrete attributes independent of data
     representation.
@@ -211,31 +215,28 @@ class BaseTensor(object):
 
         Returns
         -------
-        values : `TensorSpaceBase.dtype` or `BaseTensor`
+        values : `TensorSetBase.dtype` or `PreBaseTensor`
             The value(s) at the given indices. Note that depending on
             the implementation, the returned object may be a (writable)
             view into the original array.
         """
+        raise NotImplementedError
 
     def __setitem__(self, indices, values):
-        """Set values of this vector.
+        """Implement ``self[indices] = values``.
 
         Parameters
         ----------
         indices : index expression
             Integer, slice or sequence of these, defining the positions
             of the data array which should be written to.
-        values : scalar, array-like or `BaseTensor`
+        values : scalar, array-like or `PreBaseTensor`
             The value(s) that are to be assigned.
 
             If ``index`` is an integer, ``value`` must be a scalar.
 
             If ``index`` is a slice or a sequence of slices, ``value``
             must be broadcastable to the shape of the slice.
-
-        See also
-        --------
-        numpy.broadcast
         """
         raise NotImplementedError
 
@@ -324,7 +325,7 @@ class BaseTensor(object):
 
         Returns
         -------
-        vector : `BaseTensor`
+        vector : `PreBaseTensor`
             Tensor wrapping ``obj``.
         """
         if obj.ndim == 0:
@@ -347,7 +348,7 @@ class BaseTensor(object):
 
     @property
     def ufunc(self):
-        """`TensorSpaceBaseUfunc`, access to numpy style ufuncs.
+        """`TensorSetBaseUfunc`, access to numpy style ufuncs.
 
         These are always available, but may or may not be optimized for
         the specific space in use.
@@ -400,6 +401,159 @@ class BaseTensor(object):
         grid = RegularGrid(0, self.size - 1, self.size)
         return show_discrete_data(self.asarray(), grid, title=title,
                                   method=method, show=show, fig=fig, **kwargs)
+
+
+class TensorSpaceBase(TensorSetBase, LinearSpace):
+
+    """Base class for tensor spaces independent of implementation."""
+
+    def __init__(self, shape, dtype, order):
+        """Initialize a new instance.
+
+        Parameters
+        ----------
+        shape : sequence of int
+            Number of elements per axis.
+        dtype :
+            Data type of each element. Can be provided in any
+            way the `numpy.dtype` function understands, most notably
+            as built-in type, as one of NumPy's internal datatype
+            objects or as string.
+            Only scalar data types (numbers) are allowed.
+        order : {'C', 'F'}
+            Axis ordering of the data storage.
+        """
+        TensorSetBase.__init__(self, shape, dtype, order)
+
+        if not is_scalar_dtype(self.dtype):
+            raise TypeError('`dtype` must be a scalar data type, got {!r}'
+                            ''.format(dtype))
+
+        if is_real_dtype(self.dtype):
+            field = RealNumbers()
+            self._is_real = True
+            self._real_dtype = self.dtype
+            self._real_space = self
+            self._complex_dtype = _TYPE_MAP_R2C.get(self.dtype, None)
+            self._complex_space = None  # Set in first call of astype
+        else:
+            field = ComplexNumbers()
+            self._is_real = False
+            self._real_dtype = _TYPE_MAP_C2R[self.dtype]
+            self._real_space = None  # Set in first call of astype
+            self._complex_dtype = self.dtype
+            self._complex_space = self
+
+        self._is_floating = is_floating_dtype(self.dtype)
+        LinearSpace.__init__(self, field)
+
+    @property
+    def is_real_tensor_space(self):
+        """True if this is a space of real tensors."""
+        return self._is_real and self._is_floating
+
+    @property
+    def is_complex_tensor_space(self):
+        """True if this is a space of complex tensors."""
+        return (not self._is_real) and self._is_floating
+
+    def _astype(self, dtype):
+        """Internal helper for ``astype``."""
+        # TODO: weighting
+        return type(self)(self.shape, dtype=dtype, order=self.order)
+
+    def astype(self, dtype):
+        """Return a copy of this space with new ``dtype``.
+
+        Parameters
+        ----------
+        dtype :
+            Data type of the returned space. Can be given in any way
+            `numpy.dtype` understands, e.g. as string (``'complex64'``)
+            or data type (``complex``).
+
+        Returns
+        -------
+        newspace : `TensorSpaceBase`
+            Version of this space with given data type.
+        """
+        if dtype is None:
+            # Need to filter this out since Numpy iterprets it as 'float'
+            raise ValueError('unknown data type `None`')
+
+        dtype = np.dtype(dtype)
+        if dtype == self.dtype:
+            return self
+
+        # Caching for real and complex versions (exact dtyoe mappings)
+        if dtype == self._real_dtype:
+            if self._real_space is None:
+                self._real_space = self._astype(dtype)
+            return self._real_space
+        elif dtype == self._complex_dtype:
+            if self._complex_space is None:
+                self._complex_space = self._astype(dtype)
+            return self._complex_space
+        else:
+            return self._astype(dtype)
+
+    @property
+    def examples(self):
+        """Return example random vectors."""
+        # Always return the same numbers
+        rand_state = np.random.get_state()
+        np.random.seed(1337)
+
+        yield ('Linspaced', self.element(
+            np.linspace(0, 1, self.size).reshape(self.shape)))
+
+        if self.is_real_tensor_space:
+            yield ('Random noise', self.element(np.random.rand(*self.shape)))
+        elif self.is_complex_tensor_space:
+            yield ('Random noise',
+                   self.element(np.random.rand(*self.shape) +
+                                np.random.rand(*self.shape) * 1j))
+
+        yield ('Normally distributed random noise',
+               self.element(np.random.randn(self.size)))
+
+        np.random.set_state(rand_state)
+
+    def zero(self):
+        """Return a tensor of all zeros."""
+        raise NotImplementedError
+
+    def one(self):
+        """Return a tensor of all ones."""
+        raise NotImplementedError
+
+    def _multiply(self, x1, x2, out):
+        """The entry-wise product of two tensors, assigned to ``out``."""
+        raise NotImplementedError
+
+    def _divide(self, x1, x2, out):
+        """The entry-wise quotient of two tensors, assigned to ``out``."""
+        raise NotImplementedError
+
+    @property
+    def element_type(self):
+        """Type of elements in this set: `BaseTensor`."""
+        return BaseTensor
+
+
+class BaseTensor(PreBaseTensor, LinearSpaceVector):
+
+    """Abstract class for representation of `TensorSpaceBase` elements.
+
+    Defines abstract and concrete attributes and methods independent
+    of data representation.
+    """
+
+    def __eq__(self, other):
+        return LinearSpaceVector.__eq__(self, other)
+
+    def copy(self):
+        return LinearSpaceVector.copy(self)
 
 
 if __name__ == '__main__':
