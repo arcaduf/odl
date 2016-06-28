@@ -33,7 +33,9 @@ import numpy as np
 
 from odl.discr.grid import TensorGrid, RegularGrid, uniform_sampling_fromintv
 from odl.set.domain import IntervalProd
-from odl.util.normalize import normalized_index_expression
+from odl.util.normalize import (
+    normalized_index_expression, normalized_scalar_param_list,
+    normalized_nodes_on_bdry, safe_int_conv)
 
 
 __all__ = ('RectPartition', 'uniform_partition_fromintv',
@@ -819,40 +821,17 @@ def uniform_partition(begin=None, end=None, num_nodes=None,
     sizes = [np.size(p) for p in (begin, end, num_nodes, cell_sides)]
     ndim = int(np.max(sizes))
 
-    if ndim == 1:
-        begin = [begin]
-        end = [end]
-        num_nodes = [num_nodes]
-        cell_sides = [cell_sides]
-    else:
-        if begin is None:
-            begin = [None] * ndim
-        if end is None:
-            end = [None] * ndim
-        if num_nodes is None:
-            num_nodes = [None] * ndim
-        if cell_sides is None:
-            cell_sides = [None] * ndim
+    begin = normalized_scalar_param_list(begin, ndim, param_conv=float,
+                                         keep_none=True)
+    end = normalized_scalar_param_list(end, ndim, param_conv=float,
+                                       keep_none=True)
+    num_nodes = normalized_scalar_param_list(num_nodes, ndim,
+                                             param_conv=safe_int_conv,
+                                             keep_none=True)
+    cell_sides = normalized_scalar_param_list(cell_sides, ndim,
+                                              param_conv=float, keep_none=True)
 
-        begin = list(begin)
-        end = list(end)
-        num_nodes = list(num_nodes)
-        cell_sides = list(cell_sides)
-        sizes = [len(p) for p in (begin, end, num_nodes, cell_sides)]
-
-        if not all(s == ndim for s in sizes):
-            raise ValueError('inconsistent sizes {}, {}, {}, {} of '
-                             'arguments `begin`, `end`, `num_nodes`, '
-                             '`cell_sides`'.format(*sizes))
-
-    # Normalize nodes_on_bdry
-    if np.shape(nodes_on_bdry) == ():
-        nodes_on_bdry = ([(bool(nodes_on_bdry), bool(nodes_on_bdry))] * ndim)
-    elif ndim == 1 and len(nodes_on_bdry) == 2:
-        nodes_on_bdry = [nodes_on_bdry]
-    elif len(nodes_on_bdry) != ndim:
-        raise ValueError('nodes_on_bdry has length {}, expected {}.'
-                         ''.format(len(nodes_on_bdry), ndim))
+    nodes_on_bdry = normalized_nodes_on_bdry(nodes_on_bdry, ndim)
 
     # Calculate the missing parameters in begin, end, num_nodes
     for i, (b, e, n, s, on_bdry) in enumerate(zip(begin, end, num_nodes,
