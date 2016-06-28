@@ -38,6 +38,7 @@ from odl.set.domain import IntervalProd
 from odl.space.cu_ntuples import CUDA_AVAILABLE, CudaFn
 from odl.space.fspace import FunctionSpace
 from odl.space.ntuples import Fn
+from odl.space.weighting import ConstWeightingBase
 from odl.util.normalize import (
     normalized_scalar_param_list, safe_int_conv, normalized_nodes_on_bdry)
 from odl.util.numerics import apply_on_boundary
@@ -450,14 +451,13 @@ class DiscreteLp(DiscretizedSpace):
             arg_fstr = '''
     {!r},
     {!r},
-    {!r}
-    '''
+    {!r}'''
             if self.exponent != 2.0:
-                arg_fstr += ', exponent={ex}'
-            if self.interp != 'nearest':
-                arg_fstr += ', interp={interp!r}'
+                arg_fstr += ',\n    exponent={ex}'
+            if self.interp != ['nearest'] * self.ndim:
+                arg_fstr += ',\n    interp={interp!r}'
             if self.order != 'C':
-                arg_fstr += ', order={order!r}'
+                arg_fstr += ',\n    order={order!r}'
 
             arg_str = arg_fstr.format(
                 self.uspace, self.partition, self.dspace, interp=self.interp,
@@ -1497,8 +1497,14 @@ def uniform_discr_fromdiscr(discr, min_corner=None, max_corner=None,
 
     # TODO: use property when it becomes available
     impl = 'cuda' if isinstance(discr.dspace, CudaFn) else 'numpy'
+    if isinstance(discr.weighting, ConstWeightingBase):
+        weight = 'const'
+    else:
+        weight = 'none'
     return uniform_discr_frompartition(new_part, exponent=discr.exponent,
-                                       interp=discr.interp, impl=impl)
+                                       interp=discr.interp, impl=impl,
+                                       order=discr.order, dtype=discr.dtype,
+                                       weighting=weight)
 
 
 def _scaling_func_list(bdry_fracs, exponent=1.0):
