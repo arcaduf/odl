@@ -83,11 +83,11 @@ def reciprocal(grid, shift=True, axes=None, halfcomplex=False):
 
     In the first case, the minimum frequency (per axis) is given as::
 
-        xi_1[0] = -pi/s + pi/(s*n) = -pi/s + sigma/2.
+        xi[0] = -pi/s + pi/(s*n) = -pi/s + sigma/2.
 
     For the second case, it is::
 
-        xi_1[0] = -pi / s.
+        xi[0] = -pi / s.
 
     Note that the zero frequency is contained in case 1 for an odd
     number of points, while for an even size, the second option
