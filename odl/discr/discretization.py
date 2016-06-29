@@ -213,12 +213,12 @@ class DiscretizedSet(NtuplesBase):
 
     @property
     def impl(self):
-        """The underlying implmentation type for the dspace."""
+        """Underlying implmentation type for the dspace."""
         return self.dspace.impl
 
     @property
     def domain(self):
-        """The domain of the continuous space."""
+        """Domain of the continuous space."""
         return self.uspace.domain
 
     @property
